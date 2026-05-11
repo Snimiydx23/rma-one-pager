@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMA One Pager Generator</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f6f8;
+    --bg-tertiary: #eef0f3;
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    --border: #e2e4e8;
+    --border-strong: #cbd0d8;
+    --accent: #185FA5;
+    --accent-light: #E6F1FB;
+    --accent-dark: #0C447C;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-secondary); color: var(--text-primary); height: 100vh; overflow: hidden; }
+  .app { display: grid; grid-template-columns: 270px 1fr; height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar { background: var(--bg-primary); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .sbar-head { padding: 16px; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .logo span { color: var(--accent); }
+  .logo .v2 { font-size: 10px; color: var(--green); font-weight: 500; }
+  .sub { font-size: 10px; color: var(--text-secondary); margin-top: 3px; }
+  .sbar-body { flex: 1; overflow-y: auto; padding: 10px 12px; }
+  .sbar-foot { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .sec-label { font-size: 9px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; padding: 6px 0 4px; }
+
+  .client-row { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid transparent; border-radius: var(--radius); margin-bottom: 4px; cursor: pointer; transition: all .12s; }
+  .client-row:hover { background: var(--bg-secondary); border-color: var(--border); }
+  .client-row.active { background: var(--accent-light); border-color: var(--accent); }
+  .cinitials { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; flex-shrink: 0; }
+  .cname { font-size: 11px; font-weight: 500; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cpct { font-size: 9px; color: var(--text-secondary); }
+
+  .sec-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; margin-bottom: 2px; cursor: pointer; }
+  .sec-item:hover { background: var(--bg-secondary); }
+  .sec-check { width: 14px; height: 14px; border: 1.5px solid var(--border-strong); border-radius: 3px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 9px; }
+  .sec-check.done { background: var(--accent); border-color: var(--accent); color: white; }
+  .sec-check.partial { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .sec-lbl { font-size: 11px; color: var(--text-primary); }
+
+  /* MAIN */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .toolbar { padding: 10px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--bg-primary); flex-wrap: wrap; }
+  .tb-title { font-size: 13px; font-weight: 600; flex: 1; min-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bank-sel { padding: 5px 9px; font-size: 11px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); cursor: pointer; outline: none; }
+  .bank-sel:focus { border-color: var(--accent); }
+
+  .btn { padding: 6px 13px; font-size: 11px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--bg-primary); cursor: pointer; color: var(--text-primary); transition: all .12s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .btn:hover { background: var(--bg-secondary); }
+  .btn.active, .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn-success { background: var(--green); color: white; border-color: var(--green); }
+  .btn-success:hover { background: #27500A; }
+  .btn-pdf { background: var(--red); color: white; border-color: var(--red); }
+  .btn-danger { background: var(--red); color: white; border-color: var(--red); }
+
+  .content { display: flex; flex: 1; overflow: hidden; }
+  .form-panel { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  .preview-panel { width: 340px; overflow-y: auto; padding: 14px; background: var(--bg-secondary); border-left: 1px solid var(--border); }
+
+  .plabel { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }
+
+  /* UPLOAD */
+  .upload-zone { border: 2px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 28px; text-align: center; cursor: pointer; transition: all .15s; margin-bottom: 14px; position: relative; }
+  .upload-zone:hover { border-color: var(--accent); background: var(--accent-light); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 30px; color: var(--text-muted); margin-bottom: 8px; }
+  .upload-text { font-size: 13px; color: var(--text-secondary); }
+  .fchip { display: flex; align-items: center; gap: 8px; padding: 7px 11px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; }
+  .fchip-name { font-size: 11px; flex: 1; color: var(--text-primary); }
+  .fchip-rm { font-size: 14px; color: var(--text-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+  .fchip-rm:hover { color: var(--red); background: var(--red-light); }
+
+  /* FORM */
+  .fg { margin-bottom: 22px; }
+  .fg-title { font-size: 12px; font-weight: 600; color: var(--text-primary); padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .tag { font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+  .tag-b { background: var(--accent-light); color: var(--accent); }
+  .tag-g { background: var(--green-light); color: var(--green); }
+  .tag-a { background: var(--amber-light); color: var(--amber); }
+  .fr { margin-bottom: 9px; }
+  .fl { font-size: 10px; color: var(--text-secondary); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; font-weight: 500; }
+  .ai-tag { font-size: 8px; background: var(--green-light); color: var(--green); border-radius: 3px; padding: 1px 4px; font-weight: 600; }
+  .fi { width: 100%; padding: 7px 10px; font-size: 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-primary); color: var(--text-primary); outline: none; transition: border-color .12s; }
+  .fi:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(24,95,165,0.08); }
+  .fi.aif { border-color: var(--green); background: #EAF3DE33; }
+  textarea.fi { resize: vertical; min-height: 56px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .tbl th { background: var(--bg-secondary); padding: 6px 8px; text-align: left; font-weight: 600; color: var(--text-secondary); border: 1px solid var(--border); font-size: 9px; }
+  .tbl td { border: 1px solid var(--border); padding: 0; }
+  .tbl td input, .tbl td select { width: 100%; padding: 5px 8px; border: none; background: transparent; font-size: 10px; color: var(--text-primary); outline: none; font-family: inherit; }
+  .tbl tr:hover td { background: var(--bg-secondary); }
+  .addrow { font-size: 10px; color: var(--accent); cursor: pointer; padding: 4px 0; display: inline-block; margin-top: 4px; font-weight: 500; }
+  .addrow:hover { text-decoration: underline; }
+
+  /* PREVIEW */
+  .prev-doc { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; }
+  .prev-hdr { font-size: 12px; font-weight: 700; text-align: center; border-bottom: 2px solid var(--accent); padding-bottom: 5px; margin-bottom: 7px; color: var(--accent); letter-spacing: .5px; }
+  .prev-bank { font-size: 8px; text-align: center; color: var(--text-secondary); margin-bottom: 8px; }
+  .prev-sec { font-size: 9px; font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 2px; margin: 8px 0 4px; color: var(--accent); }
+  .prev-row { display: grid; grid-template-columns: 95px 1fr; gap: 4px; margin-bottom: 2px; }
+  .prev-k { color: var(--text-muted); font-size: 8px; }
+  .prev-v { font-size: 8px; font-weight: 500; }
+  .prev-v.e { color: var(--text-muted); font-style: italic; font-weight: 400; }
+  .prev-v.f { color: var(--accent); }
+
+  /* STATUS BAR */
+  .statusbar { padding: 8px 18px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; font-size: 11px; background: var(--bg-primary); }
+  .pbar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; }
+  .pfill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+
+  /* SPINNER */
+  .spinner { width: 30px; height: 30px; border: 2.5px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* MODAL */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--bg-primary); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 24px; width: 440px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+  .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .mclose { cursor: pointer; font-size: 20px; color: var(--text-muted); line-height: 1; }
+  .mclose:hover { color: var(--red); }
+
+  .ext-result { margin-top: 12px; padding: 10px 13px; background: var(--bg-secondary); border-radius: var(--radius); font-size: 11px; color: var(--text-secondary); }
+
+  .hidden { display: none !important; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sbar-head">
+      <div class="logo">RMA <span>One Pager</span> <span class="v2">v2</span></div>
+      <div class="sub">PDF Export &bull; Bank Templates &bull; AI Extract</div>
+    </div>
+    <div style="padding:10px 12px 6px">
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="openNewClient()">
+        <i class="ti ti-plus"></i> New Client
+      </button>
+    </div>
+    <div class="sbar-body">
+      <div class="sec-label">Clients</div>
+      <div id="clientsList"></div>
+    </div>
+    <div class="sbar-foot">
+      <div class="sec-label">Sections</div>
+      <div id="secList"></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="toolbar">
+      <div class="tb-title" id="tbTitle">Select or create a client</div>
+      <select class="bank-sel" id="providerSelect" onchange="onProviderChange()"
+        style="max-width:180px;font-size:10px" title="AI Provider">
+        <option>Loading providers…</option>
+      </select>
+      <span id="providerBadge" class="tag" style="font-size:9px;white-space:nowrap"></span>
+      <select class="bank-sel" id="bankSelect" onchange="onBankChange()">
+        <option value="generic">Generic Template</option>
+        <option value="sbi">State Bank of India</option>
+        <option value="pnb">Punjab National Bank</option>
+        <option value="union">Union Bank of India</option>
+        <option value="bob">Bank of Baroda</option>
+        <option value="canara">Canara Bank</option>
+        <option value="hdfc">HDFC Bank</option>
+        <option value="icici">ICICI Bank</option>
+      </select>
+      <button class="btn" id="tabUpload" onclick="switchView('upload')">
+        <i class="ti ti-upload"></i> Upload
+      </button>
+      <button class="btn" id="tabForm" onclick="switchView('form')">
+        <i class="ti ti-edit"></i> Fill Form
+      </button>
+      <button class="btn btn-success" onclick="generatePDF()">
+        <i class="ti ti-file-text"></i> Export PDF
+      </button>
+    </div>
+
+    <div class="content">
+      <div class="form-panel" id="formPanel">
+
+        <!-- UPLOAD VIEW -->
+        <div id="vUpload">
+          <div class="plabel">Upload Client Documents (Scanned or Text PDF)</div>
+          <div class="upload-zone" id="dropZone">
+            <input type="file" accept=".pdf" multiple onchange="handleFiles(this.files)" id="fInput">
+            <div class="upload-icon"><i class="ti ti-cloud-upload"></i></div>
+            <div class="upload-text">
+              <strong style="color:var(--text-primary)">Click to upload</strong> or drag &amp; drop PDFs here<br>
+              <span style="font-size:11px">Scanned + Text PDFs &bull; Multiple files OK</span>
+            </div>
+          </div>
+          <div id="uploadedFiles"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+            <button class="btn btn-primary" onclick="startExtract()" id="extractBtn" style="justify-content:center;padding:9px">
+              <i class="ti ti-sparkles"></i> AI Auto-Extract
+              <span style="font-size:9px;opacity:.85;display:block;margin-top:1px">Uses Anthropic API</span>
+            </button>
+            <button class="btn" onclick="startOCRScan()" id="ocrBtn" style="justify-content:center;padding:9px;border-color:var(--amber);color:var(--amber);background:var(--amber-light)">
+              <i class="ti ti-scan"></i> OCR Scan &amp; View
+              <span style="font-size:9px;opacity:.85;display:block;margin-top:1px;color:var(--text-secondary)">No API — Browser only</span>
+            </button>
+          </div>
+          <div style="margin-top:6px">
+            <button class="btn" onclick="switchView('form')" style="width:100%;justify-content:center;font-size:11px">
+              <i class="ti ti-edit"></i> Skip — Fill Manually
+            </button>
+          </div>
+
+          <div id="extProg" class="hidden" style="margin-top:16px;text-align:center;padding:16px">
+            <div class="spinner"></div>
+            <div id="extStatus" style="font-size:12px;color:var(--text-secondary)">Initialising...</div>
+          </div>
+          <div id="extResult" class="hidden ext-result"></div>
+
+          <!-- OCR Progress -->
+          <div id="ocrProg" class="hidden" style="margin-top:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:500;color:var(--text-primary)" id="ocrStatus">Preparing scanner…</div>
+              <div style="font-size:11px;color:var(--accent);font-weight:600" id="ocrPct">0%</div>
+            </div>
+            <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div id="ocrBar" style="height:100%;background:var(--amber);border-radius:3px;width:0%;transition:width .3s"></div>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:4px" id="ocrPage">—</div>
+          </div>
+        </div>
+
+        <!-- FORM VIEW -->
+        <div id="vForm" class="hidden">
+          <div class="plabel">Fill All Sections — <span style="color:var(--green)">AI</span> fields auto-extracted from PDF</div>
+
+          <!-- S1 Borrower -->
+          <div class="fg" id="sB">
+            <div class="fg-title"><i class="ti ti-building" style="font-size:13px"></i> Borrower Details <span class="tag tag-b">Section 1</span></div>
+            <div class="fr"><div class="fl">Company Name <span class="ai-tag">AI</span></div><input class="fi" id="cName" placeholder="Full registered company name" oninput="liveUpdate()"></div>
+            <div class="grid2">
+              <div class="fr">
+                <div class="fl">Constitution <span class="ai-tag">AI</span></div>
+                <select class="fi" id="const" onchange="liveUpdate()">
+                  <option value="">Select…</option>
+                  <option>Private Limited Company</option>
+                  <option>Public Limited Company</option>
+                  <option>Partnership Firm</option>
+                  <option>Proprietorship</option>
+                  <option>LLP</option>
+                </select>
+              </div>
+              <div class="fr"><div class="fl">Date of Incorporation <span class="ai-tag">AI</span></div><input class="fi" id="incDate" type="date" oninput="liveUpdate()"></div>
+            </div>
+            <div class="fr"><div class="fl">Activity / Business <span class="ai-tag">AI</span></div><input class="fi" id="activity" placeholder="Manufacturing of / Trading in…" oninput="liveUpdate()"></div>
+            <div class="fr"><div class="fl">Licensed Capacity <span class="ai-tag">AI</span></div><input class="fi" id="capacity" placeholder="e.g. 5,000 MT / 10 MW" oninput="liveUpdate()"></div>
+            <div class="fr"><div class="fl">Registered Office Address <span class="ai-tag">AI</span></div><textarea class="fi" id="regAddr" rows="2" placeholder="Full registered address with PIN" oninput="liveUpdate()"></textarea></div>
+            <div class="fr"><div class="fl">Factory / Plant Address <span class="ai-tag">AI</span></div><textarea class="fi" id="factAddr" rows="2" placeholder="Factory / plant location" oninput="liveUpdate()"></textarea></div>
+            <div class="grid2">
+              <div class="fr"><div class="fl">Name of Directors <span class="ai-tag">AI</span></div><input class="fi" id="directors" placeholder="Sh. A, Sh. B…" oninput="liveUpdate()"></div>
+              <div class="fr"><div class="fl">Key Person <span class="ai-tag">AI</span></div><input class="fi" id="keyPerson" placeholder="Managing Director / CEO" oninput="liveUpdate()"></div>
+            </div>
+            <div class="grid2">
+              <div class="fr">
+                <div class="fl">ERR / Credit Rating</div>
+                <select class="fi" id="err" onchange="liveUpdate()">
+                  <option>Unrated</option><option>BBB-</option><option>BBB</option><option>BBB+</option><option>A</option><option>AA</option><option>AAA</option>
+                </select>
+              </div>
+              <div class="fr"><div class="fl">Proposed TL Amount (Cr.) <span class="ai-tag">AI</span></div><input class="fi" id="tlAmt" placeholder="e.g. 9.50" oninput="liveUpdate()"></div>
+            </div>
+          </div>
+
+          <!-- S2 Banking -->
+          <div class="fg" id="sBK">
+            <div class="fg-title"><i class="ti ti-bank" style="font-size:13px"></i> Proposed Banking Arrangement <span class="tag tag-b">Section 2</span></div>
+            <div class="fr">
+              <div class="fl">Arrangement Type</div>
+              <select class="fi" id="arrType" style="width:auto" onchange="liveUpdate()">
+                <option>Sole</option><option>Multiple</option><option>Consortium</option>
+              </select>
+            </div>
+            <div style="overflow-x:auto;margin-top:6px">
+              <table class="tbl">
+                <thead><tr><th>Facility</th><th>Purpose</th><th>Amount (Cr.)</th></tr></thead>
+                <tbody id="bkRows">
+                  <tr><td><input placeholder="Term Loan" oninput="liveUpdate()"></td><td><input placeholder="Capital Expenditure" oninput="liveUpdate()"></td><td><input placeholder="0.00" oninput="liveUpdate()"></td></tr>
+                  <tr><td><input placeholder="Working Capital CC" oninput="liveUpdate()"></td><td><input placeholder="Working Capital Operations" oninput="liveUpdate()"></td><td><input placeholder="0.00" oninput="liveUpdate()"></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <span class="addrow" onclick="addBkRow()">+ Add facility row</span>
+          </div>
+
+          <!-- S3 COP -->
+          <div class="fg" id="sCOP">
+            <div class="fg-title"><i class="ti ti-chart-pie" style="font-size:13px"></i> Cost of Project &amp; Means of Finance <span class="tag tag-g">Section 3</span></div>
+            <div class="grid2">
+              <div>
+                <div class="fl" style="margin-bottom:8px;font-weight:700;color:var(--text-primary)">Cost of Project (Rs. Cr.)</div>
+                <div class="fr"><div class="fl">Land &amp; Site Development <span class="ai-tag">AI</span></div><input class="fi" id="cLand" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Factory Shed <span class="ai-tag">AI</span></div><input class="fi" id="cShed" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Plant &amp; Machinery <span class="ai-tag">AI</span></div><input class="fi" id="cPM" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Deposits</div><input class="fi" id="cDep" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Contingencies</div><input class="fi" id="cConting" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Pre-Operative Expenses</div><input class="fi" id="cPreOp" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Working Capital Margin</div><input class="fi" id="cWCM" placeholder="0.00" oninput="liveUpdate()"></div>
+              </div>
+              <div>
+                <div class="fl" style="margin-bottom:8px;font-weight:700;color:var(--text-primary)">Means of Finance (Rs. Cr.)</div>
+                <div class="fr"><div class="fl">Promoter's Contribution <span class="ai-tag">AI</span></div><input class="fi" id="mPC" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Unsecured Loan (Quasi Equity)</div><input class="fi" id="mUL" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">Bank Term Loan <span class="ai-tag">AI</span></div><input class="fi" id="mBTL" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">WC Fund Based</div><input class="fi" id="mWCFB" placeholder="0.00" oninput="liveUpdate()"></div>
+                <div class="fr"><div class="fl">WC Non-Fund Based</div><input class="fi" id="mWCNFB" placeholder="0.00" oninput="liveUpdate()"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- S4 Management -->
+          <div class="fg" id="sMGMT">
+            <div class="fg-title"><i class="ti ti-users" style="font-size:13px"></i> Company &amp; Management Brief <span class="tag tag-b">Section 4</span></div>
+            <div class="fr"><div class="fl">Brief about Company <span class="ai-tag">AI</span></div><textarea class="fi" id="coBrief" rows="3" placeholder="Brief about company, products, capacity, promoters background…" oninput="liveUpdate()"></textarea></div>
+            <div class="fr"><div class="fl">Brief about Management <span class="ai-tag">AI</span></div><textarea class="fi" id="mgBrief" rows="3" placeholder="Director 1 — experience… Director 2 — …" oninput="liveUpdate()"></textarea></div>
+            <div class="fr"><div class="fl">Collateral Coverage <span class="ai-tag">AI</span></div><input class="fi" id="collateral" placeholder="Approx. X% — Primary: Hyp. P&M. Collateral: Land & Building." oninput="liveUpdate()"></div>
+            <div class="fr"><div class="fl">Associate Concerns</div><input class="fi" id="associates" placeholder="Group / sister companies, if any" oninput="liveUpdate()"></div>
+          </div>
+
+          <!-- S5 Approvals -->
+          <div class="fg" id="sAPP">
+            <div class="fg-title"><i class="ti ti-certificate" style="font-size:13px"></i> Statutory Approvals &amp; Clearances <span class="tag tag-a">Section 5</span></div>
+            <div style="overflow-x:auto">
+              <table class="tbl">
+                <thead><tr><th>Permission / Approval</th><th>Status</th><th>Agency / Authority</th><th>Remark</th></tr></thead>
+                <tbody id="appRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- S6 Detailed Banking -->
+          <div class="fg" id="sBANKDET">
+            <div class="fg-title"><i class="ti ti-building-bank" style="font-size:13px"></i> Detailed Banking Arrangement <span class="tag tag-b">Section 6</span></div>
+            <div style="overflow-x:auto">
+              <table class="tbl">
+                <thead><tr><th>Particulars</th><th>Your Bank (Cr.)</th><th>Other Banks (Cr.)</th><th>Total (Cr.)</th></tr></thead>
+                <tbody>
+                  <tr><td><input value="Fresh Term Loan" oninput="liveUpdate()"></td><td><input id="btlY" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="btlO" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="btlT" placeholder="0.00" oninput="liveUpdate()"></td></tr>
+                  <tr><td><input value="Fresh Working Capital" oninput="liveUpdate()"></td><td><input id="wcY" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="wcO" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="wcT" placeholder="0.00" oninput="liveUpdate()"></td></tr>
+                  <tr><td><input value="Total Exposure" oninput="liveUpdate()"></td><td><input id="totY" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="totO" placeholder="0.00" oninput="liveUpdate()"></td><td><input id="totT" placeholder="0.00" oninput="liveUpdate()"></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="fr" style="margin-top:10px"><div class="fl">Expression of Interest from other banks</div><input class="fi" id="eoi" placeholder="Bank names / NA" oninput="liveUpdate()"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PREVIEW -->
+      <div class="preview-panel">
+        <div class="plabel">
+          <i class="ti ti-eye"></i> Live Preview
+          <span id="pvBadge" class="tag tag-b" style="float:right">0% filled</span>
+        </div>
+        <div class="prev-doc">
+          <div class="prev-hdr">PROJECT AT A GLANCE</div>
+          <div id="pvBankName" class="prev-bank">Generic Template</div>
+          <div class="prev-sec">Borrower Details</div>
+          <div class="prev-row"><div class="prev-k">Company</div><div class="prev-v e" id="pv0">—</div></div>
+          <div class="prev-row"><div class="prev-k">Constitution</div><div class="prev-v e" id="pv1">—</div></div>
+          <div class="prev-row"><div class="prev-k">Incorporated</div><div class="prev-v e" id="pv2">—</div></div>
+          <div class="prev-row"><div class="prev-k">Activity</div><div class="prev-v e" id="pv3">—</div></div>
+          <div class="prev-row"><div class="prev-k">Regd. Address</div><div class="prev-v e" id="pv4">—</div></div>
+          <div class="prev-row"><div class="prev-k">Directors</div><div class="prev-v e" id="pv5">—</div></div>
+          <div class="prev-row"><div class="prev-k">Key Person</div><div class="prev-v e" id="pv6">—</div></div>
+          <div class="prev-row"><div class="prev-k">ERR</div><div class="prev-v e" id="pv7">—</div></div>
+          <div class="prev-row"><div class="prev-k">TL Amount</div><div class="prev-v e" id="pv8">—</div></div>
+          <div class="prev-sec">Cost of Project</div>
+          <div class="prev-row"><div class="prev-k">Land</div><div class="prev-v e" id="pv9">—</div></div>
+          <div class="prev-row"><div class="prev-k">Plant &amp; Mach.</div><div class="prev-v e" id="pv10">—</div></div>
+          <div class="prev-row"><div class="prev-k">Bank Term Loan</div><div class="prev-v e" id="pv11">—</div></div>
+          <div class="prev-sec">Management</div>
+          <div class="prev-row"><div class="prev-k">Co. Brief</div><div class="prev-v e" id="pv12">—</div></div>
+          <div class="prev-row"><div class="prev-k">Collateral</div><div class="prev-v e" id="pv13">—</div></div>
+        </div>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:7px">
+          <button class="btn btn-success" onclick="generatePDF()" style="justify-content:center">
+            <i class="ti ti-file-text"></i> Export PDF
+          </button>
+          <button class="btn" onclick="generatePDF('preview')" style="justify-content:center">
+            <i class="ti ti-eye"></i> Preview in New Tab
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <div style="color:var(--text-secondary)" id="stText">Ready — select or create a client</div>
+      <div class="pbar"><div class="pfill" id="pFill" style="width:0%"></div></div>
+      <div style="color:var(--text-secondary);font-weight:500" id="stPct">0%</div>
+    </div>
+  </div>
+</div>
+
+<!-- New Client Modal -->
+<div class="modal-bg" id="modalNew">
+  <div class="modal">
+    <div class="modal-title">New Client <span class="mclose" onclick="closeM('modalNew')">&#x2715;</span></div>
+    <div class="fr"><div class="fl">Client / Company Name</div><input class="fi" id="nCName" placeholder="e.g. ASPPL Pvt. Ltd."></div>
+    <div class="fr" style="margin-top:8px">
+      <div class="fl">Project Type</div>
+      <select class="fi" id="nCType">
+        <option>Cold Storage</option><option>Steel Plant</option><option>Solar Project</option>
+        <option>Biotech / Pharma</option><option>Glass Manufacturing</option>
+        <option>Real Estate</option><option>Infrastructure</option><option>Other Manufacturing</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="createClient()">Create Client</button>
+      <button class="btn" onclick="closeM('modalNew')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- OCR Scan Modal -->
+<div class="modal-bg" id="modalOCR">
+  <div class="modal" style="width:740px;max-width:97vw">
+    <div class="modal-title">
+      <span><i class="ti ti-scan" style="font-size:14px;color:var(--amber)"></i> OCR Scan — Page Selector &amp; Smart Fill</span>
+      <span class="mclose" onclick="closeM('modalOCR')">&#x2715;</span>
+    </div>
+
+    <!-- Step 1: Page Selection -->
+    <div id="ocrStep1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-primary)">
+          <span style="background:var(--accent);color:white;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">1</span>
+          Pages select karo jisme relevant data hai
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn" onclick="ocrSelAll(true)"  style="font-size:10px;padding:3px 9px"><i class="ti ti-checks"></i> All</button>
+          <button class="btn" onclick="ocrSelAll(false)" style="font-size:10px;padding:3px 9px"><i class="ti ti-square"></i> None</button>
+        </div>
+      </div>
+      <div id="ocrPageCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding:2px"></div>
+      <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:10px;color:var(--text-secondary)" id="ocrSelCount">0 pages selected</div>
+        <button class="btn btn-primary" onclick="ocrProceed()" id="ocrProceedBtn" style="font-size:11px">
+          Next — Preview Selected Text <i class="ti ti-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Text preview + Smart Fill -->
+    <div id="ocrStep2" class="hidden">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <button class="btn" onclick="ocrBack()" style="font-size:10px;padding:3px 9px"><i class="ti ti-arrow-left"></i> Back</button>
+        <div style="font-size:11px;font-weight:600;color:var(--text-primary)">
+          <span style="background:var(--accent);color:white;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-right:5px">2</span>
+          Selected pages ka extracted text
+        </div>
+        <div id="ocrStep2Meta" style="font-size:10px;color:var(--text-secondary);margin-left:auto"></div>
+      </div>
+
+      <!-- Per-page tabs for selected pages only -->
+      <div id="ocrSelPageTabs" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <textarea id="ocrTextArea" style="width:100%;height:220px;padding:10px;font-size:11px;font-family:monospace;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--bg-secondary);color:var(--text-primary);resize:vertical;outline:none;line-height:1.6" placeholder="Text yahan dikhega…" readonly></textarea>
+
+      <div style="margin-top:8px;padding:8px 11px;background:var(--accent-light);border-radius:var(--radius);font-size:10px;color:var(--accent)">
+        <i class="ti ti-info-circle"></i>
+        <strong>2 options:</strong>
+        &nbsp;<span style="color:var(--green);font-weight:600">AI Fill</span> — Claude API se best accuracy (internet chahiye) &nbsp;|&nbsp;
+        <span style="color:var(--amber);font-weight:600">Smart Fill</span> — Offline regex, no API
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="copyOCRText()" style="justify-content:center;font-size:11px">
+          <i class="ti ti-copy"></i> Copy Text
+        </button>
+        <button class="btn" onclick="closeM('modalOCR');switchView('form')" style="justify-content:center;font-size:11px">
+          <i class="ti ti-edit"></i> Manual Fill
+        </button>
+        <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap">
+          <button class="btn" onclick="ocrSmartFill()" id="smartFillBtn"
+            style="justify-content:center;font-size:11px;border-color:var(--amber);color:var(--amber);background:var(--amber-light)">
+            <i class="ti ti-wand"></i> Smart Fill <span style="font-size:9px;opacity:.8">(Offline)</span>
+          </button>
+          <button class="btn btn-success" onclick="ocrAIFill()" id="aiFillBtn" style="justify-content:center;font-size:11px">
+            <i class="ti ti-sparkles"></i> AI Fill <span style="font-size:9px;opacity:.8">(Best)</span>
+          </button>
+        </div>
+      </div>
+      <div id="ocrFillResult" class="hidden" style="margin-top:10px;font-size:11px;padding:9px;border-radius:var(--radius)"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Generate Modal -->
+<div class="modal-bg" id="modalGen">
+  <div class="modal" style="text-align:center">
+    <div class="modal-title" style="justify-content:center">Generating PDF</div>
+    <div id="genSpinner"><div class="spinner"></div></div>
+    <div id="genStatus" style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Building document…</div>
+    <div id="genResult" class="hidden" style="font-size:11px;padding:10px;background:var(--bg-secondary);border-radius:8px;margin-bottom:12px;text-align:left"></div>
+    <button class="btn" onclick="closeM('modalGen')" id="genClose" style="margin:0 auto" class="hidden">Close</button>
+  </div>
+</div>
+
+<script>
+// ── MULTI-PROVIDER AI SYSTEM ──────────────────────────────────────────────
+// All API calls go through /api/ai proxy on server (keys are safe on server)
+let currentProvider = 'anthropic';
+const PROVIDER_META = {
+  anthropic: { name:'Claude (Anthropic)', free:'$5 free credit', badge:'Best for PDF',    color:'#185FA5', model:'claude-haiku' },
+  gemini:    { name:'Gemini (Google)',    free:'Free tier',       badge:'Fast & Free',     color:'#1A73E8', model:'gemini-1.5-flash' },
+  openai:    { name:'GPT-4o Mini',        free:'$5 free credit',  badge:'Reliable',        color:'#10A37F', model:'gpt-4o-mini' },
+  groq:      { name:'Groq (LLaMA 3.3)',   free:'Free tier',       badge:'Very Fast',       color:'#F55036', model:'llama-3.3-70b' },
+  mistral:   { name:'Mistral Small',      free:'Free tier',       badge:'Lightweight',     color:'#FF7000', model:'mistral-small' },
+};
+let availableProviders = [];
+
+async function loadProviders(){
+  try{
+    const r = await fetch('/api/providers');
+    const d = await r.json();
+    availableProviders = d.providers || [];
+    renderProviderSelector();
+  } catch(e){
+    // Server not available — show local key fallback
+    availableProviders = [];
+    renderProviderSelector();
+  }
+}
+
+function renderProviderSelector(){
+  const sel = document.getElementById('providerSelect');
+  if(!sel) return;
+  if(availableProviders.length === 0){
+    sel.innerHTML = '<option value="">No AI provider configured</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = availableProviders.map(p => {
+    const m = PROVIDER_META[p] || {name:p};
+    return `<option value="${p}">${m.name} — ${m.free}</option>`;
+  }).join('');
+  // Set to first available
+  if(availableProviders.length > 0){
+    currentProvider = availableProviders[0];
+    sel.value = currentProvider;
+  }
+  updateProviderBadge();
+}
+
+function onProviderChange(){
+  const sel = document.getElementById('providerSelect');
+  if(sel) currentProvider = sel.value;
+  updateProviderBadge();
+}
+
+function updateProviderBadge(){
+  const badge = document.getElementById('providerBadge');
+  if(!badge) return;
+  const m = PROVIDER_META[currentProvider];
+  if(!m){ badge.textContent=''; return; }
+  badge.textContent = m.badge || '';
+  badge.style.background = m.color + '22';
+  badge.style.color = m.color;
+}
+
+// Unified AI call — goes through server proxy
+async function callAI({ prompt, pdfBase64, pdfMediaType, max_tokens=1500 }){
+  if(!currentProvider || availableProviders.length===0)
+    throw new Error('Koi AI provider configured nahi hai. Server pe env variables set karo.');
+
+  const body = { provider: currentProvider, prompt, max_tokens };
+  if(pdfBase64)    body.pdfBase64    = pdfBase64;
+  if(pdfMediaType) body.pdfMediaType = pdfMediaType;
+
+  const res = await fetch('/api/ai', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body)
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data.text || '';
+}
+
+const APPROVALS = [
+  "Certificate of Incorporation","PAN Card","GST Registration (REG-06)",
+  "Land Diversion Order","Consent to Establish","Consent to Operate",
+  "Layout & Building Plan Approval","Power Connection","Water Drawl Permission",
+  "Factory License","Stability Certificate","Environment Clearance"
+];
+
+const BANK_META = {
+  generic:{name:"Generic Template",color:[24,95,165],short:""},
+  sbi:    {name:"State Bank of India",color:[0,112,56],short:"SBI"},
+  pnb:    {name:"Punjab National Bank",color:[16,41,128],short:"PNB"},
+  union:  {name:"Union Bank of India",color:[139,0,0],short:"UBI"},
+  bob:    {name:"Bank of Baroda",color:[200,80,0],short:"BoB"},
+  canara: {name:"Canara Bank",color:[0,90,170],short:"CNB"},
+  hdfc:   {name:"HDFC Bank",color:[4,40,114],short:"HDFC"},
+  icici:  {name:"ICICI Bank",color:[183,30,45],short:"ICICI"}
+};
+
+const FLDS = ['cName','const','incDate','activity','capacity','regAddr','factAddr','directors','keyPerson',
+  'err','tlAmt','arrType','cLand','cShed','cPM','cDep','cConting','cPreOp','cWCM',
+  'mPC','mUL','mBTL','mWCFB','mWCNFB','coBrief','mgBrief','collateral','associates',
+  'btlY','btlO','btlT','wcY','wcO','wcT','totY','totO','totT','eoi'];
+
+let clients = [{
+  id:1, name:"Demo Client", type:"Cold Storage", bank:"generic",
+  data:{
+    cName:"Awadh Cold Storage Pvt. Ltd.", const:"Private Limited Company", incDate:"2018-04-15",
+    activity:"Cold Storage & Refrigeration Services", capacity:"5,000 MT",
+    regAddr:"Plot 12, Industrial Area, Lucknow, UP - 226001",
+    factAddr:"Village Bakshi Ka Talab, Lucknow, UP - 226201",
+    directors:"Sh. Ramesh Kumar Gupta, Sh. Suresh Kumar Gupta",
+    keyPerson:"Sh. Ramesh Kumar Gupta (Managing Director)",
+    err:"Unrated", tlAmt:"9.50", arrType:"Sole",
+    cLand:"1.20", cShed:"2.50", cPM:"8.30", cDep:"0.30", cConting:"0.40", cPreOp:"0.60", cWCM:"1.00",
+    mPC:"3.50", mUL:"1.00", mBTL:"9.50", mWCFB:"1.00", mWCNFB:"",
+    coBrief:"Awadh Cold Storage Pvt. Ltd. is a new project promoted by experienced entrepreneurs, proposing a 5,000 MT multi-commodity cold storage facility in Lucknow, UP to serve the agri-produce sector.",
+    mgBrief:"Sh. Ramesh Kumar Gupta, MD — 15 years experience in agri-commodities and warehousing. Sh. Suresh Kumar Gupta, Director — 10 years in logistics and supply chain management.",
+    collateral:"Approx. 1.35x — Primary: Hypothecation of Plant & Machinery. Collateral: Mortgage of Land & Building.",
+    associates:"Krishna Logistics Pvt. Ltd.",
+    btlY:"9.50", btlO:"", btlT:"9.50", wcY:"1.00", wcO:"", wcT:"1.00",
+    totY:"10.50", totO:"", totT:"10.50", eoi:"NA"
+  },
+  files:[], filled:78
+}];
+
+let activeId = 1, curView = 'upload';
+
+function gc(id){ return clients.find(c => c.id === id); }
+
+function renderClients(){
+  document.getElementById('clientsList').innerHTML = clients.map(c => `
+    <div class="client-row ${c.id===activeId?'active':''}" onclick="selClient(${c.id})">
+      <div class="cinitials">${c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="cname">${c.name}</div>
+        <div class="cpct">${c.type} &bull; ${c.filled||0}% filled</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSections(){
+  const SECS = [
+    {id:'sB',    lbl:'Borrower Details',     flds:['cName','const','incDate','activity','regAddr']},
+    {id:'sBK',   lbl:'Banking Arrangement',  flds:['arrType']},
+    {id:'sCOP',  lbl:'COP & MOF',            flds:['cLand','cPM','mBTL','mPC']},
+    {id:'sMGMT', lbl:'Management Brief',     flds:['coBrief','mgBrief','collateral']},
+    {id:'sAPP',  lbl:'Statutory Approvals',  flds:[]},
+    {id:'sBANKDET',lbl:'Detailed Banking',   flds:['btlY','btlT']}
+  ];
+  document.getElementById('secList').innerHTML = SECS.map(s => {
+    const f = s.flds.filter(x => { const e=document.getElementById(x); return e&&e.value&&e.value.trim(); }).length;
+    const t = s.flds.length;
+    const cls = t===0 ? '' : (f===0 ? '' : (f===t ? 'done' : 'partial'));
+    const ch  = cls==='done' ? '&#x2713;' : cls==='partial' ? '~' : '';
+    return `<div class="sec-item" onclick="goSec('${s.id}')">
+      <div class="sec-check ${cls}">${ch}</div>
+      <div class="sec-lbl">${s.lbl}</div></div>`;
+  }).join('');
+}
+
+function goSec(id){
+  if(curView!=='form') switchView('form');
+  setTimeout(()=>{ const e=document.getElementById(id); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },80);
+}
+
+function selClient(id){
+  activeId = id;
+  const c = gc(id); if(!c) return;
+  document.getElementById('tbTitle').textContent = c.name;
+  document.getElementById('bankSelect').value = c.bank || 'generic';
+  onBankChange();
+  loadData(c.data || {});
+  renderClients(); renderSections(); liveUpdate(); renderApprovals();
+}
+
+function loadData(d){ FLDS.forEach(f => { const e=document.getElementById(f); if(e) e.value=d[f]||''; }); }
+function gatherData(){ const d={}; FLDS.forEach(f => { const e=document.getElementById(f); if(e) d[f]=e.value; }); return d; }
+
+function calcFilled(){
+  const d = gatherData();
+  const skip = ['btlO','btlT','wcO','wcT','totO','totT','associates','mUL','mWCNFB','cDep'];
+  const keys = Object.keys(d).filter(k => !skip.includes(k));
+  return Math.round(keys.filter(k => d[k]&&d[k].trim()).length / keys.length * 100);
+}
+
+function liveUpdate(){
+  const d = gatherData();
+  const pv = (id, val, prefix) => {
+    const e = document.getElementById(id); if(!e) return;
+    if(val && val.trim()){
+      e.textContent = (prefix||'') + (val.length>45 ? val.slice(0,45)+'…' : val);
+      e.className = 'prev-v f';
+    } else { e.textContent='—'; e.className='prev-v e'; }
+  };
+  pv('pv0',d.cName); pv('pv1',d.const); pv('pv2',d.incDate); pv('pv3',d.activity);
+  pv('pv4',d.regAddr); pv('pv5',d.directors); pv('pv6',d.keyPerson); pv('pv7',d.err||'Unrated');
+  pv('pv8',d.tlAmt,'Rs. '); pv('pv9',d.cLand,'Rs. '); pv('pv10',d.cPM,'Rs. ');
+  pv('pv11',d.mBTL,'Rs. '); pv('pv12',d.coBrief); pv('pv13',d.collateral);
+  const pct = calcFilled();
+  document.getElementById('pvBadge').textContent = pct + '% filled';
+  document.getElementById('pFill').style.width = pct + '%';
+  document.getElementById('stPct').textContent = pct + '%';
+  document.getElementById('stText').textContent = pct<30 ? 'Getting started…' : pct<70 ? 'Good progress…' : 'Ready to export!';
+  const c = gc(activeId);
+  if(c){ c.data = gatherData(); c.filled = pct; c.bank = document.getElementById('bankSelect').value; }
+  renderSections(); renderClients();
+  try{
+    const save = clients.map(c => ({...c, files:(c.files||[]).map(f=>({name:f.name,size:f.size}))}));
+    localStorage.setItem('rmaop2', JSON.stringify(save));
+  }catch(e){}
+}
+
+function onBankChange(){
+  const v = document.getElementById('bankSelect').value;
+  const m = BANK_META[v] || BANK_META.generic;
+  document.getElementById('pvBankName').textContent = m.name;
+  const c = gc(activeId); if(c) c.bank = v;
+}
+
+function addBkRow(){
+  const tb = document.getElementById('bkRows');
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td><input placeholder="Facility" oninput="liveUpdate()"></td><td><input placeholder="Purpose" oninput="liveUpdate()"></td><td><input placeholder="0.00" oninput="liveUpdate()"></td>';
+  tb.appendChild(tr);
+}
+
+function renderApprovals(){
+  const STATS = ['Obtained','Applied','Not Required','Pending'];
+  document.getElementById('appRows').innerHTML = APPROVALS.map(a => `
+    <tr>
+      <td><input value="${a}" style="font-size:10px" oninput="liveUpdate()"></td>
+      <td><select style="width:100%;padding:4px;border:none;background:transparent;font-size:10px;color:var(--text-primary);font-family:inherit">
+        ${STATS.map(s=>`<option>${s}</option>`).join('')}</select></td>
+      <td><input placeholder="Agency" style="font-size:10px" oninput="liveUpdate()"></td>
+      <td><input placeholder="—" style="font-size:10px" oninput="liveUpdate()"></td>
+    </tr>`).join('');
+}
+
+function handleFiles(files){
+  const c = gc(activeId); if(!c) return;
+  if(!c.files) c.files = [];
+  Array.from(files).forEach(f => c.files.push({name:f.name, size:(f.size/1024).toFixed(0)+'KB', file:f}));
+  renderFileChips();
+}
+function renderFileChips(){
+  const c = gc(activeId);
+  const ct = document.getElementById('uploadedFiles');
+  if(!c||!c.files||!c.files.length){ ct.innerHTML=''; return; }
+  ct.innerHTML = c.files.map((f,i) => {
+    const hasBlob = f.file instanceof Blob;
+    return `<div class="fchip" style="${!hasBlob?'border-color:var(--amber);background:var(--amber-light)':''}">
+      <i class="ti ti-file-text" style="font-size:14px;color:${hasBlob?'var(--accent)':'var(--amber)'}"></i>
+      <div style="flex:1;min-width:0">
+        <div class="fchip-name">${f.name}</div>
+        ${!hasBlob?'<div style="font-size:9px;color:var(--amber);font-weight:500">&#x26A0; Session reset — dobara upload karo</div>':''}
+      </div>
+      <div style="font-size:10px;color:var(--text-muted)">${f.size}</div>
+      <div class="fchip-rm" onclick="rmFile(${i})">&#x2715;</div>
+    </div>`;
+  }).join('');
+}
+function rmFile(i){ const c=gc(activeId); if(c&&c.files) c.files.splice(i,1); renderFileChips(); }
+
+async function startExtract(){
+  const c = gc(activeId);
+  if(!c||!c.files||!c.files.length){ alert('Pehle PDF upload karo.'); return; }
+
+  const fileObj = c.files[0].file;
+  if(!fileObj || !(fileObj instanceof Blob)){
+    alert('PDF file session mein nahi hai.\n\nKripya PDF dobara upload karo (× se hatao, phir wapas add karo).');
+    return;
+  }
+
+  if(!availableProviders.length){
+    alert('Koi AI provider server pe configured nahi hai.\nRender dashboard mein Environment Variables set karo.');
+    return;
+  }
+
+  document.getElementById('extProg').classList.remove('hidden');
+  document.getElementById('extractBtn').disabled = true;
+  const STEPS = ['Reading PDF…','Analyzing structure…','Extracting data…','Parsing details…','Identifying COP & MOF…','Finalizing…'];
+  let si = 0;
+  const iv = setInterval(()=>{ if(si<STEPS.length-1) document.getElementById('extStatus').textContent=STEPS[si++]; },900);
+  try{
+    const b64 = await f2b64(fileObj);
+    const prompt = `Extract data from this bank loan DPR or project report. Return ONLY valid JSON, no markdown:
+{"cName":"","const":"","incDate":"YYYY-MM-DD or empty","activity":"","capacity":"","regAddr":"","factAddr":"","directors":"","keyPerson":"","tlAmt":"number only in Crores","cLand":"number only","cShed":"number only","cPM":"number only","cDep":"number only","cConting":"number only","cPreOp":"number only","cWCM":"number only","mPC":"number only","mUL":"number only","mBTL":"number only","mWCFB":"number only","coBrief":"2-3 sentences","mgBrief":"director details","collateral":"collateral details"}
+All amounts in Crores. Empty string if not found.`;
+
+    const raw = await callAI({ prompt, pdfBase64: b64, pdfMediaType: 'application/pdf' });
+    clearInterval(iv);
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const jsonStr = (clean.match(/\{[\s\S]+\}/) || [clean])[0];
+    let ext = {}; try{ ext=JSON.parse(jsonStr); }catch(e){}
+    const cnt = Object.values(ext).filter(v=>v&&v.toString().trim()).length;
+    loadData({...gatherData(),...ext});
+    liveUpdate();
+    document.getElementById('extProg').classList.add('hidden');
+    document.getElementById('extResult').classList.remove('hidden');
+    document.getElementById('extResult').innerHTML = `<i class="ti ti-check" style="color:var(--green)"></i> <strong>${cnt} fields extracted</strong> via ${PROVIDER_META[currentProvider]?.name||currentProvider}. Review in Fill Form tab.`;
+    switchView('form');
+  }catch(err){
+    clearInterval(iv);
+    document.getElementById('extProg').classList.add('hidden');
+    document.getElementById('extResult').classList.remove('hidden');
+    document.getElementById('extResult').innerHTML = `<i class="ti ti-alert-triangle" style="color:var(--red)"></i> ${err.message}`;
+  }
+  document.getElementById('extractBtn').disabled = false;
+}
+function f2b64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(',')[1]);
+    r.onerror=()=>rej(new Error('File read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
+function switchView(v){
+  curView = v;
+  document.getElementById('vUpload').classList.toggle('hidden', v!=='upload');
+  document.getElementById('vForm').classList.toggle('hidden', v!=='form');
+  document.getElementById('tabUpload').classList.toggle('active', v==='upload');
+  document.getElementById('tabForm').classList.toggle('active', v==='form');
+}
+
+function openNewClient(){ document.getElementById('modalNew').classList.add('open'); setTimeout(()=>document.getElementById('nCName').focus(),80); }
+function closeM(id){ document.getElementById(id).classList.remove('open'); }
+function createClient(){
+  const name = document.getElementById('nCName').value.trim();
+  const type = document.getElementById('nCType').value;
+  if(!name){ alert('Please enter client name.'); return; }
+  const id = Date.now();
+  clients.push({id,name,type,bank:'generic',data:{},files:[],filled:0});
+  closeM('modalNew');
+  document.getElementById('nCName').value='';
+  selClient(id); renderClients(); switchView('upload');
+}
+
+async function generatePDF(mode){
+  const c = gc(activeId);
+  if(!c){ alert('Please select a client first.'); return; }
+  const d = gatherData();
+  if(!d.cName){ alert('Please fill Company Name before generating PDF.'); return; }
+  const bankKey = document.getElementById('bankSelect').value;
+  const bm = BANK_META[bankKey] || BANK_META.generic;
+
+  document.getElementById('modalGen').classList.add('open');
+  document.getElementById('genResult').classList.add('hidden');
+  document.getElementById('genClose').classList.add('hidden');
+  document.getElementById('genSpinner').style.display='block';
+
+  const steps = ['Building layout…','Formatting sections…','Adding tables…','Finalising PDF…'];
+  let si=0;
+  const iv = setInterval(()=>{ if(si<steps.length-1) document.getElementById('genStatus').textContent=steps[si++]; },400);
+  await new Promise(r=>setTimeout(r,200));
+
+  try{
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210, H=297, ML=13, MR=197, TW=MR-ML;
+    let y=13;
+    const bc = bm.color;
+
+    const cv  = (v,fb) => (v&&v.trim()) ? v : (fb||'N/A');
+    const num = v => (v&&v.trim()) ? v : '';
+
+    // ── HEADER ──────────────────────────────────────────────────────────────
+    doc.setFillColor(...bc);
+    doc.rect(0,0,210,20,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('PROJECT AT A GLANCE', 105, 9.5, {align:'center'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(bm.name.toUpperCase(), 105, 15, {align:'center'});
+    y = 26;
+
+    // ── SECTION HEADER ───────────────────────────────────────────────────────
+    const secHead = (title, sub) => {
+      if(y > H-25){ doc.addPage(); y=14; }
+      doc.setFillColor(...bc.map(x=>Math.min(255,x+145)));
+      doc.rect(ML,y,TW,7,'F');
+      doc.setTextColor(...bc);
+      doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+      doc.text(title, ML+3, y+4.8);
+      if(sub){ doc.setFontSize(7); doc.text(sub, MR-2, y+4.8, {align:'right'}); }
+      y += 9;
+    };
+
+    // ── FIELD ROW ────────────────────────────────────────────────────────────
+    const LW = 54;
+    const fieldRow = (lbl, val) => {
+      if(y > H-16){ doc.addPage(); y=14; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...bc);
+      doc.text(lbl+' :', ML+2, y+3.8);
+      doc.setFont('helvetica','normal'); doc.setTextColor(35,35,35);
+      const lines = doc.splitTextToSize(val, TW-LW-4);
+      doc.text(lines, ML+LW+2, y+3.8);
+      const rh = Math.max(6, lines.length*4.6);
+      doc.setDrawColor(225,225,225); doc.setLineWidth(0.2);
+      doc.line(ML,y+rh,MR,y+rh);
+      y += rh;
+    };
+
+    // ── TABLE HEADER ROW ─────────────────────────────────────────────────────
+    const tblHead = (headers, widths) => {
+      if(y>H-16){ doc.addPage(); y=14; }
+      doc.setFillColor(...bc);
+      doc.rect(ML,y,TW,6,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+      let cx=ML;
+      headers.forEach((h,i)=>{ doc.text(h, cx+2, y+4.2); cx+=widths[i]; });
+      y+=6;
+    };
+
+    // ── TABLE DATA ROW ────────────────────────────────────────────────────────
+    const tblRow = (cells, widths, rowIdx, bold) => {
+      if(y>H-14){ doc.addPage(); y=14; }
+      const bg = bold ? bc.map(x=>Math.min(255,x+140)) : (rowIdx%2===0 ? [248,252,255] : [255,255,255]);
+      doc.setFillColor(...bg); doc.rect(ML,y,TW,5.5,'F');
+      doc.setTextColor(bold?bc[0]:35, bold?bc[1]:35, bold?bc[2]:35);
+      doc.setFont('helvetica', bold?'bold':'normal'); doc.setFontSize(7.5);
+      let cx=ML;
+      cells.forEach((v,i)=>{ doc.text(String(v||'—'), cx+2, y+3.8); cx+=widths[i]; });
+      doc.setDrawColor(220,220,220); doc.setLineWidth(0.2); doc.line(ML,y+5.5,MR,y+5.5);
+      y+=5.5;
+    };
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // S1 — BORROWER
+    secHead('BORROWER AT A GLANCE');
+    fieldRow('Name of Company', cv(d.cName));
+    fieldRow('Constitution', cv(d.const,'Private Limited Company'));
+    fieldRow('Date of Incorporation', cv(d.incDate));
+    fieldRow('Activity', cv(d.activity) + (d.capacity ? '  |  Licensed Capacity: '+d.capacity : ''));
+    fieldRow('Registered Office', cv(d.regAddr));
+    fieldRow('Factory Address', cv(d.factAddr));
+    fieldRow('Name of Directors', cv(d.directors));
+    fieldRow('Key Person', cv(d.keyPerson));
+    fieldRow('ERR / Rating', cv(d.err,'Unrated'));
+    y+=3;
+
+    // S2 — BANKING ARRANGEMENT
+    secHead('PROPOSED BANKING ARRANGEMENT', '(Rs. in Crores)');
+    const bkW = [60,106,18];
+    tblHead(['Facility','Purpose','Amount (Cr.)'], bkW);
+    const bkRows = document.getElementById('bkRows').querySelectorAll('tr');
+    let totalAmt = 0;
+    bkRows.forEach((tr,ri)=>{
+      const tds = tr.querySelectorAll('input');
+      const v = [tds[0]?.value||'', tds[1]?.value||'', tds[2]?.value||''];
+      if(parseFloat(v[2])) totalAmt += parseFloat(v[2]);
+      tblRow(v, bkW, ri);
+    });
+    tblRow(['Total', '', totalAmt.toFixed(2)], bkW, 0, true);
+    y+=4;
+
+    // S3 — COP & MOF
+    secHead('COST OF PROJECT FOR TERM LOAN OF RS. '+(d.tlAmt||'…')+' CRORES', '(Rs. in Crores)');
+    const HW = TW/2-1;
+    const copItems = [
+      ['Land & Site Development',d.cLand],['Factory Shed',d.cShed],
+      ['Plant & Machinery',d.cPM],['Deposits',d.cDep],
+      ['Contingencies',d.cConting],['Pre-Operative Expenses',d.cPreOp],
+      ['Working Capital Margin',d.cWCM]
+    ];
+    const mofItems = [
+      ["Promoter's Contribution",d.mPC],['Unsecured Loan (Quasi Equity)',d.mUL],
+      ['Bank Term Loan',d.mBTL],['WC (Fund Based)',d.mWCFB],['WC (Non-Fund Based)',d.mWCNFB]
+    ];
+    const copTotal = copItems.reduce((s,[,v])=>s+(parseFloat(v)||0),0);
+    const mofTotal = mofItems.reduce((s,[,v])=>s+(parseFloat(v)||0),0);
+
+    doc.setFillColor(...bc); doc.rect(ML,y,HW,5.5,'F'); doc.rect(ML+HW+2,y,HW,5.5,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+    doc.text('COST OF PROJECT', ML+3, y+3.8);
+    doc.text('MEANS OF FINANCE', ML+HW+5, y+3.8);
+    y+=5.5;
+    const maxR = Math.max(copItems.length,mofItems.length);
+    for(let i=0;i<maxR;i++){
+      if(y>H-14){ doc.addPage(); y=14; }
+      const cop=copItems[i]||['',''], mof=mofItems[i]||['',''];
+      const bg=i%2===0?[248,252,255]:[255,255,255];
+      doc.setFillColor(...bg); doc.rect(ML,y,HW,5,'F'); doc.rect(ML+HW+2,y,HW,5,'F');
+      doc.setTextColor(35,35,35); doc.setFont('helvetica','normal'); doc.setFontSize(7.2);
+      if(cop[0]){ doc.text(cop[0],ML+2,y+3.3); if(num(cop[1])) doc.text(cop[1],ML+HW-2,y+3.3,{align:'right'}); }
+      if(mof[0]){ doc.text(mof[0],ML+HW+4,y+3.3); if(num(mof[1])) doc.text(mof[1],MR-1,y+3.3,{align:'right'}); }
+      doc.setDrawColor(220,220,220); doc.setLineWidth(0.2);
+      doc.line(ML,y+5,ML+HW,y+5); doc.line(ML+HW+2,y+5,MR,y+5);
+      y+=5;
+    }
+    doc.setFillColor(...bc.map(x=>Math.min(255,x+130))); doc.rect(ML,y,HW,5.5,'F'); doc.rect(ML+HW+2,y,HW,5.5,'F');
+    doc.setTextColor(...bc); doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+    doc.text('TOTAL COP', ML+2, y+3.8); doc.text(copTotal.toFixed(2), ML+HW-2, y+3.8,{align:'right'});
+    doc.text('TOTAL MOF', ML+HW+4, y+3.8); doc.text(mofTotal.toFixed(2), MR-1, y+3.8,{align:'right'});
+    y+=9;
+
+    // S4 — MANAGEMENT
+    if(y>H-50){ doc.addPage(); y=14; }
+    secHead('BRIEF ABOUT COMPANY');
+    doc.setTextColor(35,35,35); doc.setFont('helvetica','normal'); doc.setFontSize(7.8);
+    const coL = doc.splitTextToSize(cv(d.coBrief), TW-4);
+    doc.text(coL, ML+2, y); y+=coL.length*4.6+5;
+
+    if(y>H-40){ doc.addPage(); y=14; }
+    secHead('BRIEF ABOUT MANAGEMENT');
+    doc.setTextColor(35,35,35); doc.setFont('helvetica','normal'); doc.setFontSize(7.8);
+    const mgL = doc.splitTextToSize(cv(d.mgBrief), TW-4);
+    doc.text(mgL, ML+2, y); y+=mgL.length*4.6+5;
+
+    if(y>H-30){ doc.addPage(); y=14; }
+    doc.setFillColor(...bc.map(x=>Math.min(255,x+145)));
+    doc.rect(ML,y,HW,7,'F'); doc.rect(ML+HW+2,y,HW,7,'F');
+    doc.setTextColor(...bc); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+    doc.text('COLLATERAL COVERAGE', ML+3, y+4.8);
+    doc.text('ASSOCIATE CONCERNS', ML+HW+5, y+4.8);
+    y+=9;
+    doc.setTextColor(35,35,35); doc.setFont('helvetica','normal'); doc.setFontSize(7.8);
+    const colL = doc.splitTextToSize(cv(d.collateral), HW-4);
+    doc.text(colL, ML+2, y);
+    doc.text(cv(d.associates,'Nil'), ML+HW+4, y);
+    y+=Math.max(colL.length*4.6,5)+7;
+
+    // S5 — APPROVALS
+    if(y>H-60){ doc.addPage(); y=14; }
+    secHead('STATUTORY APPROVALS & CLEARANCES');
+    const apW=[64,26,46,TW-136];
+    tblHead(['Permission / Approval','Status','Agency','Remark'], apW);
+    document.getElementById('appRows').querySelectorAll('tr').forEach((tr,ri)=>{
+      const tds=tr.querySelectorAll('input,select');
+      tblRow([tds[0]?.value||'',tds[1]?.value||'',tds[2]?.value||'',tds[3]?.value||''], apW, ri);
+    });
+
+    // S6 — DETAILED BANKING
+    y+=6;
+    if(y>H-50){ doc.addPage(); y=14; }
+    secHead('DETAILS OF PROPOSED BANKING ARRANGEMENT — '+(cv(d.arrType,'Sole')).toUpperCase()+' BANKING', '(Rs. in Crores)');
+    const dbW=[82,30,36,TW-148];
+    tblHead(['Particulars','Your Bank','Other Banks','Total'], dbW);
+    [
+      ['Fresh Term Loan', d.btlY, d.btlO, d.btlT],
+      ['Fresh Working Capital', d.wcY, d.wcO, d.wcT],
+      ['Total Exposure', d.totY, d.totO, d.totT]
+    ].forEach((r,ri)=>tblRow(r, dbW, ri, ri===2));
+    if(d.eoi&&d.eoi.trim()){
+      y+=3;
+      doc.setTextColor(80,80,80); doc.setFont('helvetica','italic'); doc.setFontSize(7.5);
+      doc.text('Expression of Interest from: '+d.eoi, ML, y); y+=5;
+    }
+
+    // ── FOOTER ──────────────────────────────────────────────────────────────
+    const now=new Date();
+    const ds=now.getDate()+'/'+(now.getMonth()+1)+'/'+now.getFullYear();
+    doc.setDrawColor(180,180,180); doc.setLineWidth(0.3); doc.line(ML,H-11,MR,H-11);
+    doc.setFontSize(6.5); doc.setFont('helvetica','italic'); doc.setTextColor(140,140,140);
+    doc.text('Prepared by: RMA Finance Private Limited | CA Rahul Mishra & Associates | Raipur, Chhattisgarh', ML, H-7);
+    doc.text('Date: '+ds, MR, H-7, {align:'right'});
+
+    clearInterval(iv);
+    document.getElementById('genSpinner').style.display='none';
+    document.getElementById('genStatus').textContent='PDF generated successfully!';
+    document.getElementById('genResult').classList.remove('hidden');
+
+    const fname=(d.cName||'OnePager').replace(/[^a-z0-9]/gi,'_')+'_OnePager'+(bm.short?'_'+bm.short:'')+'.pdf';
+    if(mode==='preview'){
+      const blob=doc.output('blob');
+      window.open(URL.createObjectURL(blob),'_blank');
+      document.getElementById('genResult').innerHTML=`<i class="ti ti-eye" style="color:var(--accent)"></i> Opened in new tab — <strong>${fname}</strong>`;
+    } else {
+      doc.save(fname);
+      document.getElementById('genResult').innerHTML=`<i class="ti ti-check" style="color:var(--green)"></i> Downloaded: <strong>${fname}</strong>`;
+    }
+  }catch(err){
+    clearInterval(iv);
+    document.getElementById('genSpinner').style.display='none';
+    document.getElementById('genStatus').textContent='Error generating PDF';
+    document.getElementById('genResult').classList.remove('hidden');
+    document.getElementById('genResult').innerHTML=`<i class="ti ti-alert-triangle" style="color:var(--red)"></i> ${err.message}`;
+  }
+  document.getElementById('genClose').classList.remove('hidden');
+}
+
+// ── OCR SCAN ────────────────────────────────────────────────────────────────
+let ocrPages = [];
+let ocrActiveIdx = 0;
+
+async function startOCRScan(){
+  const c = gc(activeId);
+  if(!c||!c.files||!c.files.length){ alert('Pehle PDF upload karo.'); return; }
+
+  // Check actual File object exists (lost after page reload / localStorage restore)
+  const fileObj = c.files[0].file;
+  if(!fileObj || !(fileObj instanceof Blob)){
+    alert('PDF file session mein nahi hai.\n\nPage reload hone par file object reset ho jaata hai.\n\nKripya PDF dobara upload karo (file chip × se hatao, phir wapas add karo).');
+    return;
+  }
+
+  document.getElementById('ocrProg').classList.remove('hidden');
+  document.getElementById('ocrBtn').disabled = true;
+  ocrPages = [];
+
+  try{
+    if(!window.pdfjsLib) throw new Error('PDF.js load nahi hua — internet check karo.');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+
+    const file = fileObj;
+    const ab = await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result);
+      r.onerror=()=>rej(new Error('File read failed'));
+      r.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('ocrStatus').textContent = 'Loading PDF…';
+    document.getElementById('ocrBar').style.width = '5%';
+    document.getElementById('ocrPct').textContent = '5%';
+
+    const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+    const totalPages = pdf.numPages;
+    let allTextPages = [];
+
+    for(let pg=1; pg<=totalPages; pg++){
+      const pgLabel = `Page ${pg}/${totalPages}`;
+      document.getElementById('ocrPage').textContent = pgLabel;
+      document.getElementById('ocrStatus').textContent = `Scanning ${pgLabel}…`;
+
+      const page = await pdf.getPage(pg);
+
+      // First try text extraction (fast, for text PDFs)
+      const textContent = await page.getTextContent();
+      const textItems = textContent.items.map(i=>i.str).join(' ').trim();
+
+      let pageText = '';
+
+      if(textItems.length > 50){
+        // Text PDF — direct extract
+        pageText = buildReadableText(textContent);
+        document.getElementById('ocrStatus').textContent = `Text extracted — ${pgLabel}`;
+      } else {
+        // Scanned PDF — render to canvas then OCR
+        document.getElementById('ocrStatus').textContent = `OCR scanning — ${pgLabel}…`;
+        const viewport = page.getViewport({scale: 2.0}); // 2x for better OCR accuracy
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        await page.render({canvasContext: ctx, viewport}).promise;
+
+        // Tesseract OCR — workerPath set for file:// compatibility
+        document.getElementById('ocrStatus').textContent = `OCR ${pgLabel} — loading engine…`;
+        const worker = await Tesseract.createWorker('eng', 1, {
+          workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+          langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+          corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js',
+          logger: m => {
+            if(m.status === 'recognizing text'){
+              const sub = Math.round(m.progress * 100);
+              document.getElementById('ocrStatus').textContent = `OCR ${pgLabel} — ${sub}%`;
+            }
+          }
+        });
+        const result = await worker.recognize(canvas);
+        await worker.terminate();
+        pageText = result.data.text;
+        canvas.remove();
+      }
+
+      allTextPages.push({page: pg, text: pageText.trim()});
+
+      const overall = Math.round((pg/totalPages)*100);
+      document.getElementById('ocrBar').style.width = overall + '%';
+      document.getElementById('ocrPct').textContent = overall + '%';
+    }
+
+    ocrPages = allTextPages;
+    document.getElementById('ocrProg').classList.add('hidden');
+    document.getElementById('ocrBtn').disabled = false;
+
+    // Open modal first so DOM elements are visible, then render
+    document.getElementById('modalOCR').classList.add('open');
+    requestAnimationFrame(() => renderOCRModal());
+
+  } catch(err){
+    document.getElementById('ocrProg').classList.add('hidden');
+    document.getElementById('ocrBtn').disabled = false;
+    document.getElementById('ocrProg').classList.add('hidden');
+    alert('OCR Error: ' + err.message);
+  }
+}
+
+function buildReadableText(textContent){
+  // Group items by approximate Y position for line reconstruction
+  let lines = {};
+  textContent.items.forEach(item => {
+    const y = Math.round(item.transform[5] / 5) * 5;
+    if(!lines[y]) lines[y] = [];
+    lines[y].push(item.str);
+  });
+  return Object.keys(lines).sort((a,b)=>b-a)
+    .map(y => lines[y].join(' ').trim())
+    .filter(l => l.length > 0)
+    .join('\n');
+}
+
+function renderOCRModal(){
+  const fillRes  = document.getElementById('ocrFillResult');
+  const step1    = document.getElementById('ocrStep1');
+  const step2    = document.getElementById('ocrStep2');
+  const cards    = document.getElementById('ocrPageCards');
+
+  if(!fillRes || !step1 || !step2 || !cards){
+    // Elements not yet in DOM — retry after next paint
+    requestAnimationFrame(() => renderOCRModal());
+    return;
+  }
+
+  fillRes.classList.add('hidden');
+  step1.classList.remove('hidden');
+  step2.classList.add('hidden');
+
+  // Store selection state first
+  ocrPages.forEach((p,i) => {
+    p.selected = /company|pvt|ltd|project|term\s*loan|cost|promoter|land|machinery|director|address|incorporat|manufacturing|capacity|crore|lakh/i.test(p.text);
+  });
+
+  // Render cards in batches to avoid browser freeze on large PDFs (60+ pages)
+  cards.innerHTML = '';
+  const BATCH = 10;
+  let idx = 0;
+  function renderBatch(){
+    const end = Math.min(idx + BATCH, ocrPages.length);
+    const frag = document.createDocumentFragment();
+    for(let i = idx; i < end; i++){
+      const p = ocrPages[i];
+      const snippet = p.text.replace(/\s+/g,' ').slice(0,120).trim();
+      const relevant = p.selected;
+      const div = document.createElement('div');
+      div.id = 'ocrcard_'+i;
+      div.onclick = (()=>{ const ii=i; return ()=>ocrTogglePage(ii); })();
+      div.style.cssText = 'border:1.5px solid '+(relevant?'var(--accent)':'var(--border)')+';border-radius:var(--radius);padding:9px 11px;cursor:pointer;transition:all .15s;background:'+(relevant?'var(--accent-light)':'var(--bg-primary)');
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+          <div id="ocrchk_${i}" style="width:15px;height:15px;border:1.5px solid ${relevant?'var(--accent)':'var(--border-strong)'};border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;background:${relevant?'var(--accent)':'transparent'};color:white">${relevant?'&#x2713;':''}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-primary)">Page ${p.page}</div>
+          ${relevant?'<span style="font-size:8px;background:var(--accent);color:white;border-radius:3px;padding:1px 5px;margin-left:auto">Relevant</span>':'<span style="font-size:8px;color:var(--text-muted);margin-left:auto">'+(p.text.trim().length<20?'Empty':'Other')+'</span>'}
+        </div>
+        <div style="font-size:9px;color:var(--text-secondary);line-height:1.5;font-family:monospace;overflow:hidden;max-height:42px">${snippet||'(no text)'}</div>`;
+      frag.appendChild(div);
+    }
+    cards.appendChild(frag);
+    idx = end;
+    if(idx < ocrPages.length){
+      requestAnimationFrame(renderBatch);
+    } else {
+      updateOcrSelCount();
+    }
+  }
+  renderBatch();
+  ocrActiveIdx = 0;
+}
+
+function ocrTogglePage(i){
+  ocrPages[i].selected = !ocrPages[i].selected;
+  const chk = document.getElementById('ocrchk_'+i);
+  const card = document.getElementById('ocrcard_'+i);
+  const sel = ocrPages[i].selected;
+  chk.innerHTML = sel ? '&#x2713;' : '';
+  chk.style.background = sel ? 'var(--accent)' : 'transparent';
+  chk.style.borderColor = sel ? 'var(--accent)' : 'var(--border-strong)';
+  card.style.borderColor = sel ? 'var(--accent)' : 'var(--border)';
+  card.style.background  = sel ? 'var(--accent-light)' : 'var(--bg-primary)';
+  updateOcrSelCount();
+}
+
+function ocrSelAll(val){
+  ocrPages.forEach((p,i) => { p.selected = val; ocrTogglePage_silent(i, val); });
+  updateOcrSelCount();
+}
+
+function ocrTogglePage_silent(i, val){
+  ocrPages[i].selected = val;
+  const chk = document.getElementById('ocrchk_'+i);
+  const card = document.getElementById('ocrcard_'+i);
+  if(!chk || !card) return;
+  chk.innerHTML = val ? '&#x2713;' : '';
+  chk.style.background = val ? 'var(--accent)' : 'transparent';
+  chk.style.borderColor = val ? 'var(--accent)' : 'var(--border-strong)';
+  card.style.borderColor = val ? 'var(--accent)' : 'var(--border)';
+  card.style.background  = val ? 'var(--accent-light)' : 'var(--bg-primary)';
+}
+
+function updateOcrSelCount(){
+  const n = ocrPages.filter(p=>p.selected).length;
+  const cnt = document.getElementById('ocrSelCount');
+  const btn = document.getElementById('ocrProceedBtn');
+  if(cnt) cnt.textContent = n + ' page' + (n===1?'':'s') + ' selected';
+  if(btn) btn.disabled = (n === 0);
+}
+
+function ocrProceed(){
+  const sel = ocrPages.filter(p=>p.selected);
+  if(!sel.length){ alert('Kam se kam ek page select karo.'); return; }
+
+  const s1 = document.getElementById('ocrStep1');
+  const s2 = document.getElementById('ocrStep2');
+  const meta = document.getElementById('ocrStep2Meta');
+  const tabsEl = document.getElementById('ocrSelPageTabs');
+  const ta = document.getElementById('ocrTextArea');
+  if(!s1||!s2||!tabsEl||!ta) return;
+
+  s1.classList.add('hidden');
+  s2.classList.remove('hidden');
+  if(meta) meta.textContent = sel.length + ' pages selected';
+
+  tabsEl.innerHTML = sel.map((p,i) => `
+    <button onclick="showSelPage(${i})" id="seltab_${i}"
+      style="padding:3px 11px;font-size:11px;border-radius:6px;cursor:pointer;
+             border:1px solid ${i===0?'var(--accent)':'var(--border-strong)'};
+             background:${i===0?'var(--accent-light)':'var(--bg-primary)'};
+             color:${i===0?'var(--accent)':'var(--text-secondary)'};font-family:inherit">
+      Page ${p.page}
+    </button>`).join('');
+
+  ta.value = sel[0]?.text || '';
+}
+
+function showSelPage(idx){
+  const sel = ocrPages.filter(p=>p.selected);
+  document.getElementById('ocrTextArea').value = sel[idx]?.text || '';
+  document.querySelectorAll('[id^="seltab_"]').forEach((el,i)=>{
+    el.style.borderColor = i===idx ? 'var(--accent)' : 'var(--border-strong)';
+    el.style.background  = i===idx ? 'var(--accent-light)' : 'var(--bg-primary)';
+    el.style.color       = i===idx ? 'var(--accent)' : 'var(--text-secondary)';
+  });
+}
+
+function ocrBack(){
+  document.getElementById('ocrStep2').classList.add('hidden');
+  document.getElementById('ocrStep1').classList.remove('hidden');
+}
+
+function copyOCRText(){
+  const sel = ocrPages.filter(p=>p.selected);
+  const all = sel.map(p=>`--- Page ${p.page} ---\n${p.text}`).join('\n\n');
+  navigator.clipboard.writeText(all).then(()=>{
+    alert('Copied! Paste in Word ya Notepad mein.');
+  }).catch(()=>{
+    document.getElementById('ocrTextArea').select();
+    document.execCommand('copy');
+    alert('Copied!');
+  });
+}
+
+
+function ocrAIFill(){
+  const selPages = ocrPages.filter(p => p.selected);
+  if(!selPages.length){ alert('Koi page selected nahi hai.'); return; }
+  const rawText = selPages.map(p => p.text).join('\n');
+  if(!rawText.trim()){ alert('Selected pages mein text nahi mila.'); return; }
+
+  if(!availableProviders.length){
+    alert('Koi AI provider server pe configured nahi hai.\nRender dashboard mein Environment Variables set karo.');
+    return;
+  }
+
+  const btn  = document.getElementById('aiFillBtn');
+  const btn2 = document.getElementById('smartFillBtn');
+  const res  = document.getElementById('ocrFillResult');
+  btn.disabled = true; btn2.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> AI analyzing…';
+  res.classList.remove('hidden');
+  res.style.cssText = 'background:var(--accent-light);color:var(--accent)';
+  res.innerHTML = '<i class="ti ti-sparkles"></i> '+( PROVIDER_META[currentProvider]?.name||currentProvider)+' OCR text analyze kar raha hai…';
+
+  const cleanText = rawText
+    .replace(/\r/g,'').replace(/[ \t]+/g,' ')
+    .replace(/([a-z])([A-Z])/g,'$1 $2')
+    .replace(/([A-Z]{2,})([A-Z][a-z])/g,'$1 $2')
+    .replace(/\.{3,}/g,' ').replace(/_{3,}/g,' ')
+    .replace(/\|{2,}/g,' ').replace(/-{4,}/g,' ')
+    .split('\n').map(l=>l.trim()).filter(l=>l.length>1).join('\n')
+    .slice(0, 12000);
+
+  const prompt = `You are a financial data extraction expert. Extract structured fields from this RAW OCR TEXT of a bank loan DPR (Detailed Project Report). Text may have OCR errors or merged words.
+
+RULES:
+1. Return ONLY a valid JSON object — no markdown, no explanation
+2. Leave field as empty string "" if NOT clearly identifiable
+3. cName = ONLY legal company name (e.g. "Hindustan Dhaatu Limited") — NEVER include "Project Report","Set up of","FOR","DPR on"
+4. All amounts in Indian Rupees CRORES. If Lakhs, divide by 100
+5. incDate = YYYY-MM-DD or empty
+6. const = exactly one of: "Private Limited Company","Public Limited Company","LLP","Partnership Firm","Proprietorship"
+7. Numbers = plain digits like "9.50" only
+
+JSON:
+{"cName":"","const":"","incDate":"","activity":"","capacity":"","regAddr":"","factAddr":"","directors":"","keyPerson":"","err":"","tlAmt":"","arrType":"","cLand":"","cShed":"","cPM":"","cDep":"","cConting":"","cPreOp":"","cWCM":"","mPC":"","mUL":"","mBTL":"","mWCFB":"","mWCNFB":"","coBrief":"","mgBrief":"","collateral":"","associates":""}
+
+OCR TEXT:
+${cleanText}`;
+
+  callAI({ prompt, max_tokens:1500 })
+  .then(raw => {
+    const jsonStr = (raw.match(/\{[\s\S]+\}/) || [raw])[0].replace(/```json|```/g,'').trim();
+    let extracted = {};
+    try{ extracted = JSON.parse(jsonStr); }
+    catch(e){ throw new Error('JSON parse failed: '+e.message); }
+
+    const existing = gatherData();
+    const merged = {...existing};
+    let filled = 0;
+    Object.entries(extracted).forEach(([k,v])=>{
+      const val = String(v||'').trim();
+      if(!val) return;
+      if(!existing[k]||!existing[k].trim()){ merged[k]=val; filled++; }
+    });
+    loadData(merged); liveUpdate();
+
+    const secMap={cName:'Borrower',const:'Borrower',incDate:'Borrower',activity:'Borrower',capacity:'Borrower',regAddr:'Borrower',factAddr:'Borrower',directors:'Borrower',keyPerson:'Borrower',err:'Borrower',tlAmt:'Borrower',arrType:'Banking',btlY:'Banking',btlT:'Banking',cLand:'COP',cShed:'COP',cPM:'COP',cDep:'COP',cConting:'COP',cPreOp:'COP',cWCM:'COP',mPC:'MOF',mUL:'MOF',mBTL:'MOF',mWCFB:'MOF',mWCNFB:'MOF',coBrief:'Mgmt',mgBrief:'Mgmt',collateral:'Mgmt',associates:'Mgmt'};
+    const sc={};
+    Object.keys(extracted).filter(k=>extracted[k]).forEach(k=>{const s=secMap[k]||'Other';sc[s]=(sc[s]||0)+1;});
+    const summary=Object.entries(sc).map(([s,n])=>s+'('+n+')').join(' &bull; ');
+
+    res.style.cssText='background:var(--green-light);color:var(--green)';
+    res.innerHTML='<i class="ti ti-check"></i> <strong>'+filled+' fields filled</strong> via '+(PROVIDER_META[currentProvider]?.name||currentProvider)+' &nbsp;|&nbsp; '+summary+
+      '<br><span style="font-size:10px;opacity:.8">Already filled untouched &bull; Numbers verify karo</span>';
+    setTimeout(()=>{ closeM('modalOCR'); switchView('form'); },1800);
+  })
+  .catch(err=>{
+    res.style.cssText='background:var(--red-light);color:var(--red)';
+    res.innerHTML='<i class="ti ti-alert-triangle"></i> AI Fill failed: '+err.message+
+      '<br><span style="font-size:10px">Smart Fill (Offline) try karo.</span>';
+  })
+  .finally(()=>{
+    btn.disabled=false; btn2.disabled=false;
+    btn.innerHTML='<i class="ti ti-sparkles"></i> AI Fill <span style="font-size:9px;opacity:.8">(Best)</span>';
+  });
+}
+
+function ocrSmartFill(){
+  const selPages = ocrPages.filter(p => p.selected);
+  if(!selPages.length){ alert('Koi page selected nahi hai.'); return; }
+  const rawText = selPages.map(p => p.text).join('\n');
+  if(!rawText.trim()){ alert('Selected pages mein koi text nahi mila.'); return; }
+
+  // ── NORMALIZE ─────────────────────────────────────────────────────────────
+  const T = rawText
+    .replace(/\r/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]{2,})([A-Z][a-z])/g, '$1 $2')
+    .replace(/\.{3,}/g, ' ')
+    .replace(/_{3,}/g, ' ')
+    .replace(/\|{2,}/g, ' ')
+    .replace(/-{4,}/g, ' ')
+    .replace(/\x00/g, '');
+
+  const LINES = T.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
+  // ── HELPERS ──────────────────────────────────────────────────────────────
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g,' ').trim();
+  const lineHas = (line, kw) => norm(line).includes(norm(kw));
+
+  const valAfterLabel = (lineIdx, maxLen) => {
+    const line = LINES[lineIdx];
+    const colonIdx = line.search(/\s*[:\-]\s*[^\-]/);
+    if(colonIdx > 0){
+      const after = line.slice(colonIdx).replace(/^\s*[:\-]\s*/, '').trim();
+      if(after.length >= 2 && !/^\d{4,6}$/.test(after))
+        return after.slice(0, maxLen);
+    }
+    for(let j = lineIdx+1; j < Math.min(lineIdx+3, LINES.length); j++){
+      const nxt = LINES[j].trim();
+      if(nxt.length >= 2 && !/^[:\-\|]/.test(nxt))
+        return nxt.slice(0, maxLen);
+    }
+    return null;
+  };
+
+  const lastNum = (text) => {
+    const matches = [...text.matchAll(/\b(\d{1,5}(?:,\d{2,3})*(?:\.\d{1,3})?)\b/g)];
+    for(let i = matches.length-1; i >= 0; i--){
+      const raw = matches[i][1].replace(/,/g, '');
+      const n = parseFloat(raw);
+      const dc = raw.replace('.','').length;
+      if(!isNaN(n) && n > 0 && n < 50000
+        && !(n >= 1900 && n <= 2099) && dc <= 7) return n.toFixed(2);
+    }
+    return null;
+  };
+
+  const findNum = (...keywords) => {
+    for(const kw of keywords){
+      for(let i = 0; i < LINES.length; i++){
+        if(!lineHas(LINES[i], kw)) continue;
+        const n1 = lastNum(LINES[i]);
+        if(n1) return n1;
+        if(i+1 < LINES.length){ const n2 = lastNum(LINES[i+1]); if(n2) return n2; }
+      }
+    }
+    return null;
+  };
+
+  const findText = (maxLen, ...keywords) => {
+    for(const kw of keywords){
+      for(let i = 0; i < LINES.length; i++){
+        if(!lineHas(LINES[i], kw)) continue;
+        const v = valAfterLabel(i, maxLen);
+        if(!v || /^\d[\d\s,\.]*$/.test(v) || v.length < 2) continue;
+        return v.replace(/[,\.\s;:]+$/, '').trim();
+      }
+    }
+    return null;
+  };
+
+  const found = {};
+  const set = (k, v) => { if(v!=null && String(v).trim().length>0) found[k]=String(v).trim(); };
+
+  // ── S1: BORROWER ─────────────────────────────────────────────────────────
+  (()=>{
+    const SUFFIX = /(?:private\s+limited|pvt\.?\s*ltd\.?|public\s+limited|limited|llp)\b/i;
+    const TITLE = /^(?:project|report|dpr|set\s*up|detail|manufacturing|production|establishment|a\s+new|proposed)/i;
+
+    // 1. Labelled line
+    const labelKws = ['name of company','name of firm','name of borrower','company name','borrower name','name of the unit','m/s'];
+    for(const kw of labelKws){
+      for(let i=0; i<LINES.length; i++){
+        if(!lineHas(LINES[i], kw)) continue;
+        const after = LINES[i].replace(/^.*?[:\-]\s*/, '').trim();
+        if(after.length>=4 && SUFFIX.test(after) && after.length<=100){ set('cName',after); return; }
+        const v = valAfterLabel(i, 120);
+        if(v && SUFFIX.test(v) && v.length<=100){ set('cName',v); return; }
+      }
+    }
+    // 2. Standalone line ending with company suffix
+    for(const line of LINES){
+      if(!SUFFIX.test(line) || TITLE.test(line) || line.length<5 || line.length>120) continue;
+      const splitM = line.match(/\b(?:for|by|of|to)\s+([A-Z][A-Za-z\s&\.\(\)]+?(?:Private\s+Limited|Pvt\.?\s*Ltd\.?|Limited|LLP))\s*$/i);
+      if(splitM && splitM[1].trim().length<=100){ set('cName', splitM[1].trim()); return; }
+      if(!/\b(?:for|by|of|to|the|and|from|this|which)\b.*(?:pvt|ltd|limited)/i.test(line)){
+        set('cName', line.replace(/[,\.\s;:]+$/,'').trim()); return;
+      }
+    }
+    // 3. "FOR <Company Name>" pattern
+    const fm = T.match(/\bfor\s+([A-Z][A-Za-z\s&\.\(\)]+?(?:Private\s+Limited|Pvt\.?\s*Ltd\.?|Limited|LLP))\b/i);
+    if(fm && fm[1].trim().length<=100) set('cName', fm[1].trim());
+  })();
+
+  // Constitution
+  (()=>{
+    if(/private\s+limited/i.test(T))                         set('const','Private Limited Company');
+    else if(/public\s+limited/i.test(T))                     set('const','Public Limited Company');
+    else if(/limited\s+liability\s+partnership|\bllp\b/i.test(T)) set('const','LLP');
+    else if(/partnership\s+firm/i.test(T))                   set('const','Partnership Firm');
+    else if(/proprietor/i.test(T))                           set('const','Proprietorship');
+  })();
+
+  // Date of Incorporation
+  (()=>{
+    const MO={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+    const iLines = LINES.filter(l=>/incorporat|date\s+of\s+reg/i.test(l));
+    for(const line of iLines){
+      const dm = line.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+      if(dm){ const y=dm[3].length===2?'20'+dm[3]:dm[3]; set('incDate',y+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0')); return; }
+      const nm = line.match(/(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/);
+      if(nm){ const mo=MO[nm[2].toLowerCase().slice(0,3)]; if(mo){ set('incDate',nm[3]+'-'+String(mo).padStart(2,'0')+'-'+nm[1].padStart(2,'0')); return; } }
+    }
+    const m = T.match(/(?:incorporat\w*|date\s+of\s+(?:inc\w*|reg\w*))\D{0,20}(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i);
+    if(m){ const p=m[1].split(/[\/\-\.]/); if(p.length===3){ const y=p[2].length===2?'20'+p[2]:p[2]; set('incDate',y+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0')); } }
+  })();
+
+  // Activity
+  set('activity', findText(120,'nature of business','nature of activity','business activity','main activity','line of activity','activity'));
+
+  // Capacity
+  (()=>{
+    const v = findText(80,'licensed capacity','installed capacity','proposed capacity','total capacity','rated capacity');
+    if(v){ set('capacity',v); return; }
+    const m = T.match(/\b(\d[\d,\.]+\s*(?:MT|TPD|TPM|TPA|KLD?|MW|KW)\b[^\n]{0,30})/i);
+    if(m) set('capacity', m[1].trim().slice(0,70));
+  })();
+
+  // Addresses
+  set('regAddr',   findText(250,'registered office address','registered office','regd office','regd. office'));
+  set('factAddr',  findText(250,'factory address','plant address','project site','project location','location of plant','location of factory','site address','factory location'));
+
+  // Directors
+  (()=>{
+    const v = findText(200,'name of directors','name of promoters','directors','promoters / directors','promoters');
+    if(v) set('directors', v.replace(/^(?:directors?|promoters?)\s*[:\-]?\s*/i,'').trim());
+  })();
+
+  // Key Person
+  (()=>{
+    const v = findText(100,'key person','key managerial person','authorized signatory','contact person');
+    if(v){ set('keyPerson',v); return; }
+    const m = T.match(/managing\s+director\s*[:\-]\s*([A-Z][A-Za-z\s\.]{4,60})/i);
+    if(m) set('keyPerson', m[1].trim().slice(0,80));
+  })();
+
+  // ERR
+  (()=>{
+    const m = T.match(/\b(?:err|external\s+(?:credit\s+)?rating|credit\s+rating)\s*[:\-]\s*([^\n]{2,25})/i);
+    if(!m) return;
+    const v=m[1].trim();
+    const R=['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B'];
+    const fr=R.find(r=>v.toUpperCase().startsWith(r));
+    if(fr) set('err',fr);
+    else if(/unrat|not\s+rat|\bnr\b/i.test(v)) set('err','Unrated');
+  })();
+
+  // TL Amount
+  (()=>{
+    const pats=[
+      /term\s+loan\s+of\s+rs\.?\s*([\d,\.]+)\s*(?:cr|crore)/i,
+      /proposed\s+term\s+loan\s*[:\-]\s*rs?\.?\s*([\d,\.]+)/i,
+      /bank\s+term\s+loan\s*[:\-]\s*rs?\.?\s*([\d,\.]+)/i,
+      /\btl\s*[:\-]\s*rs?\.?\s*([\d,\.]+)\s*cr/i,
+    ];
+    for(const p of pats){
+      const m=T.match(p); if(m){ const n=parseFloat(m[1].replace(/,/g,'')); if(n>0&&n<50000){set('tlAmt',n.toFixed(2));break;} }
+    }
+  })();
+
+  // ── S2: BANKING ──────────────────────────────────────────────────────────
+  (()=>{
+    if(/consortium\s+(?:bank|lend|arrang)/i.test(T))  set('arrType','Consortium');
+    else if(/multiple\s+(?:bank|lend)/i.test(T))      set('arrType','Multiple');
+    else if(/sole\s+(?:bank|lend|banking)/i.test(T))  set('arrType','Sole');
+  })();
+
+  // ── S3: COP ──────────────────────────────────────────────────────────────
+  set('cLand',    findNum('land & site development','land and site development','land & site dev','land development','land & site'));
+  set('cShed',    findNum('factory shed','factory building','building shed','civil construction','civil work'));
+  set('cPM',      findNum('plant & machinery','plant and machinery','plant & equipment','plant & machineries'));
+  set('cDep',     findNum('deposits','security deposit','advance deposit'));
+  set('cConting', findNum('contingencies','contingency expenses','contingency'));
+  set('cPreOp',   findNum('pre-operative','pre operative','preliminary & pre','idc','interest during construction','pre-op'));
+  set('cWCM',     findNum('working capital margin','wc margin','margin money for wc','margin for wc','w.c. margin'));
+
+  // MOF
+  set('mPC',    findNum("promoter's contribution","promoters' contribution","promoter contribution","own contribution","equity contribution","promoters equity"));
+  set('mUL',    findNum('unsecured loan','quasi equity','soft loan','unsecured loans'));
+  set('mBTL',   findNum('bank term loan','term loan from bank','term loan (bank','tl from bank','proposed term loan'));
+  set('mWCFB',  findNum('working capital (fund','wc (fund based','cash credit limit','cc limit','working capital fund'));
+  set('mWCNFB', findNum('working capital (non','wc (non fund','lc/bg','letter of credit','bank guarantee'));
+
+  if(found.tlAmt && !found.btlY){ set('btlY',found.tlAmt); set('btlT',found.tlAmt); }
+
+  // ── S4: MANAGEMENT ───────────────────────────────────────────────────────
+  set('coBrief',    findText(400,'about the company','company background','company profile','brief about company','brief about the company'));
+  set('mgBrief',    findText(400,'brief about management','management profile','management brief','promoter profile','directors profile'));
+  (()=>{
+    const v=findText(200,'collateral security','collateral coverage','primary security','security offered','security details');
+    if(v){ set('collateral',v); return; }
+    const m=T.match(/(?:primary\s+security|collateral)\s*[:\-]\s*([^\n]{10,200})/i);
+    if(m) set('collateral',m[1].trim().slice(0,200));
+  })();
+  set('associates', findText(150,'associate concern','group concern','sister concern','related entities','associate companies'));
+
+  // ── MERGE ────────────────────────────────────────────────────────────────
+  const cnt = Object.keys(found).length;
+  const res = document.getElementById('ocrFillResult');
+
+  if(cnt === 0){
+    if(res){ res.classList.remove('hidden'); res.style.cssText='background:var(--red-light);color:var(--red)'; res.innerHTML='<i class="ti ti-alert-triangle"></i> Koi field match nahi hua. OCR text copy karke manually fill karo.'; }
+    return;
+  }
+
+  const existing = gatherData();
+  let newlyFilled = 0;
+  const merged = {...existing};
+  Object.entries(found).forEach(([k,v])=>{ if(!existing[k]||!existing[k].trim()){merged[k]=v;newlyFilled++;} });
+  loadData(merged);
+  liveUpdate();
+
+  const secMap={cName:'Borrower',const:'Borrower',incDate:'Borrower',activity:'Borrower',capacity:'Borrower',regAddr:'Borrower',factAddr:'Borrower',directors:'Borrower',keyPerson:'Borrower',err:'Borrower',tlAmt:'Borrower',arrType:'Banking',btlY:'Banking',btlT:'Banking',cLand:'COP',cShed:'COP',cPM:'COP',cDep:'COP',cConting:'COP',cPreOp:'COP',cWCM:'COP',mPC:'MOF',mUL:'MOF',mBTL:'MOF',mWCFB:'MOF',mWCNFB:'MOF',coBrief:'Mgmt',mgBrief:'Mgmt',collateral:'Mgmt',associates:'Mgmt'};
+  const sc={};
+  Object.keys(found).forEach(k=>{const s=secMap[k]||'Other';sc[s]=(sc[s]||0)+1;});
+  const summary=Object.entries(sc).map(([s,n])=>s+'('+n+')').join(' &bull; ');
+
+  if(res){ res.classList.remove('hidden'); res.style.cssText='background:var(--green-light);color:var(--green)'; res.innerHTML='<i class="ti ti-check"></i> <strong>'+newlyFilled+' fields filled</strong> ('+cnt+' found) &nbsp;|&nbsp; '+summary+'<br><span style="font-size:10px;opacity:.8">Already filled untouched &bull; Numbers verify karna</span>'; }
+  const btn=document.getElementById('smartFillBtn');
+  if(btn){btn.disabled=true;setTimeout(()=>{btn.disabled=false;},3000);}
+}
+(function init(){
+  try{
+    const s=localStorage.getItem('rmaop2');
+    if(s){ const d=JSON.parse(s); if(d&&d.length) clients=d.map(c=>({...c,files:c.files||[]})); }
+  }catch(e){}
+  renderClients(); renderSections();
+  if(clients.length){ selClient(clients[0].id); switchView('upload'); }
+  renderApprovals();
+  loadProviders();
+})();
+</script>
+</body>
+</html>
