@@ -1,6 +1,6 @@
 {
   "name": "rma-one-pager",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "RMA Finance One Pager Generator",
   "main": "server.js",
   "scripts": {
@@ -10,6 +10,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "pdf-parse": "^1.1.1"
   }
 }
