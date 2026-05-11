@@ -12,10 +12,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 const PROVIDERS = {
   anthropic: {
     keyEnv: 'ANTHROPIC_API_KEY',
-    supportsPdf: true,   // can receive raw PDF bytes
-    maxTokens: 2000,
+    supportsPdf: true,
+    maxTokens: 3000,
     getUrl:    () => 'https://api.anthropic.com/v1/messages',
-    getHeaders:(key) => ({ 'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01' }),
+    getHeaders:(k) => ({ 'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01' }),
     buildBody: ({ prompt, pdfBase64, pdfMediaType, max_tokens }) => {
       const content = [];
       if (pdfBase64 && pdfMediaType)
@@ -23,76 +23,71 @@ const PROVIDERS = {
       content.push({ type:'text', text:prompt });
       return JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens, messages:[{ role:'user', content }] });
     },
-    parseResp: (data) => {
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      return (data.content || []).map(b => b.text || '').join('');
+    parseResp: (d) => {
+      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return (d.content || []).map(b => b.text || '').join('');
     }
   },
-
   gemini: {
     keyEnv: 'GEMINI_API_KEY',
     supportsPdf: false,
-    maxTokens: 2000,
-    getUrl:    (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+    maxTokens: 3000,
+    getUrl:    (k) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${k}`,
     getHeaders:() => ({ 'Content-Type':'application/json' }),
     buildBody: ({ prompt, max_tokens }) => JSON.stringify({
-      contents: [{ parts:[{ text:prompt }] }],
-      generationConfig: { maxOutputTokens: max_tokens }
+      contents:[{ parts:[{ text:prompt }] }],
+      generationConfig:{ maxOutputTokens:max_tokens, temperature:0.1 }
     }),
-    parseResp: (data) => {
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    parseResp: (d) => {
+      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
   },
-
   groq: {
     keyEnv: 'GROQ_API_KEY',
     supportsPdf: false,
-    maxTokens: 2000,
+    maxTokens: 4000,
     getUrl:    () => 'https://api.groq.com/openai/v1/chat/completions',
-    getHeaders:(key) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${key}` }),
+    getHeaders:(k) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${k}` }),
     buildBody: ({ prompt, max_tokens }) => JSON.stringify({
       model:'llama-3.3-70b-versatile',
       max_tokens,
+      temperature: 0.1,
       messages:[{ role:'user', content:prompt }]
     }),
-    parseResp: (data) => {
-      if (data.error) throw new Error(typeof data.error==='string' ? data.error : (data.error.message || JSON.stringify(data.error)));
-      return data.choices?.[0]?.message?.content || '';
+    parseResp: (d) => {
+      if (d.error) throw new Error(typeof d.error==='string' ? d.error : (d.error.message || JSON.stringify(d.error)));
+      return d.choices?.[0]?.message?.content || '';
     }
   },
-
   mistral: {
     keyEnv: 'MISTRAL_API_KEY',
     supportsPdf: false,
-    maxTokens: 2000,
+    maxTokens: 3000,
     getUrl:    () => 'https://api.mistral.ai/v1/chat/completions',
-    getHeaders:(key) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${key}` }),
+    getHeaders:(k) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${k}` }),
     buildBody: ({ prompt, max_tokens }) => JSON.stringify({
-      model:'mistral-small-latest',
-      max_tokens,
+      model:'mistral-small-latest', max_tokens, temperature:0.1,
       messages:[{ role:'user', content:prompt }]
     }),
-    parseResp: (data) => {
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      return data.choices?.[0]?.message?.content || '';
+    parseResp: (d) => {
+      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return d.choices?.[0]?.message?.content || '';
     }
   },
-
   openai: {
     keyEnv: 'OPENAI_API_KEY',
     supportsPdf: false,
-    maxTokens: 2000,
+    maxTokens: 3000,
     getUrl:    () => 'https://api.openai.com/v1/chat/completions',
-    getHeaders:(key) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${key}` }),
+    getHeaders:(k) => ({ 'Content-Type':'application/json','Authorization':`Bearer ${k}` }),
     buildBody: ({ prompt, max_tokens }) => JSON.stringify({
-      model:'gpt-4o-mini',
-      max_tokens,
+      model:'gpt-4o-mini', max_tokens, temperature:0.1,
       messages:[{ role:'user', content:prompt }]
     }),
-    parseResp: (data) => {
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      return data.choices?.[0]?.message?.content || '';
+    parseResp: (d) => {
+      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return d.choices?.[0]?.message?.content || '';
     }
   }
 };
@@ -101,48 +96,138 @@ const PROVIDERS = {
 console.log('\n=== RMA One Pager — Provider Status ===');
 Object.entries(PROVIDERS).forEach(([name, cfg]) => {
   const k = process.env[cfg.keyEnv];
-  console.log(`  ${name.padEnd(10)}: ${k ? 'CONFIGURED (' + k.slice(0,10) + '...)' : 'not set'}`);
+  console.log(`  ${name.padEnd(10)}: ${k ? 'OK (' + k.slice(0,12) + '...)' : 'not set'}`);
 });
 console.log('=======================================\n');
 
-// ── Helper: extract text from PDF base64 ────────────────────────────────────
+// ── PDF text extractor ───────────────────────────────────────────────────────
 async function extractPdfText(base64) {
   const buf = Buffer.from(base64, 'base64');
-  try {
-    const data = await pdfParse(buf);
-    let text = data.text || '';
-    // Fix merged words: split camelCase boundaries common in OCR PDFs
-    text = text
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/([A-Z]{2,})([A-Z][a-z])/g, '$1 $2')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n{3,}/g, '\n\n');
-    console.log(`[pdf-parse] extracted ${text.length} chars, ${data.numpages} pages`);
-    return text.slice(0, 14000); // send up to 14k chars to AI
-  } catch (e) {
-    console.error('[pdf-parse] error:', e.message);
-    throw new Error('PDF text extract failed: ' + e.message);
-  }
+  const data = await pdfParse(buf);
+  let text = data.text || '';
+  // Fix merged camelCase words common in pdf-parse output
+  text = text
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]{2,})([A-Z][a-z])/g, '$1 $2')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  console.log(`[pdf] ${data.numpages} pages, ${text.length} chars`);
+  return text;
 }
 
-// ── Build full prompt with extracted text ────────────────────────────────────
+// ── Smart number parser: detects Lakhs vs Crores ────────────────────────────
+function detectUnit(text) {
+  // Count occurrences to decide dominant unit
+  const crMatch = (text.match(/\b(crore|cr\.)/gi) || []).length;
+  const lkMatch = (text.match(/\b(lakh|lac|lakhs)\b/gi) || []).length;
+  return lkMatch > crMatch ? 'lakhs' : 'crores';
+}
+
+// ── Build extraction prompt ──────────────────────────────────────────────────
 function buildExtractionPrompt(pdfText) {
-  return `You are a financial data extraction expert. Extract structured fields from this bank loan DPR (Detailed Project Report) text.
+  // Detect unit in this document
+  const unit = detectUnit(pdfText);
+  const unitNote = unit === 'lakhs'
+    ? 'IMPORTANT: This document uses LAKHS. Convert ALL amounts to CRORES by dividing by 100. Example: 5721.03 Lakhs = 57.21 Crores.'
+    : 'Amounts are already in CRORES. Use as-is.';
 
-STRICT RULES:
-1. Return ONLY valid JSON — no markdown backticks, no explanation
-2. cName = ONLY the legal company name (e.g. "Hindustan Dhaatu Limited") — NEVER include words like "Project Report", "Set up of", "FOR", "DPR on", "Manufacturing of", "Prepared by"
-3. All financial amounts in Indian Rupees CRORES. If Lakhs found, divide by 100
-4. incDate = YYYY-MM-DD format or empty string ""
-5. const = exactly one of: "Private Limited Company", "Public Limited Company", "LLP", "Partnership Firm", "Proprietorship"
-6. Numbers = plain digits only like "9.50" — no Rs, no Cr, no commas
-7. Leave field as "" if NOT clearly found
+  // Trim to fit context (send up to 16k chars)
+  const trimmed = pdfText.slice(0, 16000);
 
-JSON to return (all fields required, use "" if not found):
-{"cName":"","const":"","incDate":"","activity":"","capacity":"","regAddr":"","factAddr":"","directors":"","keyPerson":"","err":"","tlAmt":"","arrType":"","cLand":"","cShed":"","cPM":"","cDep":"","cConting":"","cPreOp":"","cWCM":"","mPC":"","mUL":"","mBTL":"","mWCFB":"","mWCNFB":"","coBrief":"","mgBrief":"","collateral":"","associates":""}
+  return `You are extracting financial data from an Indian bank loan DPR (Detailed Project Report) for a One Pager template.
 
-DPR TEXT:
-${pdfText}`;
+${unitNote}
+
+STRICT RULES — follow exactly:
+1. Output ONLY a raw JSON object. No markdown, no backticks, no explanation before or after.
+2. cName: Legal company name ONLY. Examples: "Hindustan Dhaatu Limited", "Awadh Cold Storage Pvt. Ltd."
+   - NEVER include: "Project Report", "Set up of", "FOR", "DPR", "Prepared by", "Manufacturing of"
+3. const: EXACTLY one of these strings: "Private Limited Company" / "Public Limited Company" / "LLP" / "Partnership Firm" / "Proprietorship"
+4. incDate: YYYY-MM-DD format only. Example: "2021-03-15". Empty string if not found.
+5. All numeric fields (cLand, cShed, cPM, etc.): plain decimal number in CRORES. Example: "57.21"
+   - No commas, no "Rs", no "Cr", no "Lakhs" — just the number
+   - If amount is in Lakhs, divide by 100 before returning
+   - Empty string "" if the field is zero or not found
+6. tlAmt: Total Term Loan amount in Crores
+7. arrType: "Sole" / "Consortium" / "Multiple"
+8. err: credit rating string or "Unrated"
+9. All text fields: clean, concise. No extra formatting.
+
+FIELD MAPPING (search these exact labels in the text):
+- cLand  ← "Land & Site Development" or "Land Development"
+- cShed  ← "Factory Shed" or "Civil Work" or "Building"  
+- cPM    ← "Plant & Machinery" or "Plant and Machinery"
+- cDep   ← "Deposits" or "Security Deposit"
+- cConting ← "Contingencies"
+- cPreOp ← "Pre-Operative" or "Preliminary" or "Pre-Op"
+- cWCM   ← "Working Capital Margin" or "WC Margin"
+- mPC    ← "Promoter Contribution" or "Promoter's Contribution" or "By Promoter"
+- mUL    ← "Unsecured Loan" or "Quasi Equity"
+- mBTL   ← "Bank Term Loan" or "Term Loan" (from bank)
+- mWCFB  ← "Working Capital (Fund Based)" or "Cash Credit" or "CC Limit"
+- mWCNFB ← "Working Capital (Non-Fund)" or "LC" or "BG"
+
+Return this exact JSON structure:
+{
+  "cName": "",
+  "const": "",
+  "incDate": "",
+  "activity": "",
+  "capacity": "",
+  "regAddr": "",
+  "factAddr": "",
+  "directors": "",
+  "keyPerson": "",
+  "err": "",
+  "tlAmt": "",
+  "arrType": "",
+  "cLand": "",
+  "cShed": "",
+  "cPM": "",
+  "cDep": "",
+  "cConting": "",
+  "cPreOp": "",
+  "cWCM": "",
+  "mPC": "",
+  "mUL": "",
+  "mBTL": "",
+  "mWCFB": "",
+  "mWCNFB": "",
+  "coBrief": "",
+  "mgBrief": "",
+  "collateral": "",
+  "associates": ""
+}
+
+DPR TEXT BELOW:
+---
+${trimmed}
+---`;
+}
+
+// ── Safe JSON extractor from AI response ────────────────────────────────────
+function extractJSON(raw) {
+  if (!raw) throw new Error('Empty AI response');
+  // Try direct parse first
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{')) {
+    try { return JSON.parse(trimmed); } catch(e) {}
+  }
+  // Strip markdown fences
+  const stripped = trimmed.replace(/^```json\s*/i,'').replace(/```\s*$/,'').trim();
+  try { return JSON.parse(stripped); } catch(e) {}
+  // Find JSON object in response
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch(e) {}
+    // Try fixing common AI JSON mistakes: trailing commas
+    try {
+      const fixed = match[0].replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(fixed);
+    } catch(e) {}
+  }
+  throw new Error('Could not parse JSON from AI response: ' + raw.slice(0, 200));
 }
 
 // ── GET /api/providers ───────────────────────────────────────────────────────
@@ -150,97 +235,94 @@ app.get('/api/providers', (req, res) => {
   const available = Object.entries(PROVIDERS)
     .filter(([, cfg]) => { const k = process.env[cfg.keyEnv]; return k && k.trim().length > 0; })
     .map(([name]) => name);
-  console.log('[/api/providers] returning:', available);
+  console.log('[providers]', available);
   res.json({ providers: available });
 });
 
 // ── GET /api/health ──────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  const status = {};
-  Object.entries(PROVIDERS).forEach(([n, cfg]) => { status[n] = !!process.env[cfg.keyEnv]; });
-  res.json({ ok:true, node:process.version, providers:status });
+  const st = {};
+  Object.entries(PROVIDERS).forEach(([n, c]) => { st[n] = !!process.env[c.keyEnv]; });
+  res.json({ ok: true, node: process.version, providers: st });
 });
 
-// ── POST /api/ai ─────────────────────────────────────────────────────────────
+// ── POST /api/ai  (AI Auto-Extract — receives PDF base64) ────────────────────
 app.post('/api/ai', async (req, res) => {
-  const { provider = 'groq', prompt, max_tokens = 2000, pdfBase64, pdfMediaType } = req.body;
-  console.log(`[/api/ai] provider=${provider} hasPdf=${!!pdfBase64} promptLen=${prompt?.length}`);
+  const { provider = 'groq', prompt, max_tokens, pdfBase64, pdfMediaType } = req.body;
+  console.log(`[/api/ai] provider=${provider} hasPdf=${!!pdfBase64}`);
 
   const cfg = PROVIDERS[provider];
   if (!cfg) return res.status(400).json({ error: `Unknown provider: ${provider}` });
-
   const apiKey = process.env[cfg.keyEnv];
-  if (!apiKey || !apiKey.trim())
-    return res.status(503).json({ error: `${provider} key not configured. Render > Environment mein ${cfg.keyEnv} add karo.` });
+  if (!apiKey?.trim()) return res.status(503).json({ error: `${provider} key not set in environment.` });
 
   try {
     let finalPrompt = prompt;
-    let usePdfBase64 = null;
+    let usePdfB64   = null;
 
-    // If PDF provided:
     if (pdfBase64) {
       if (cfg.supportsPdf) {
-        // Anthropic: pass PDF directly
-        usePdfBase64 = pdfBase64;
+        // Anthropic: pass PDF directly — its own prompt handles extraction
+        usePdfB64 = pdfBase64;
+        finalPrompt = prompt; // use the simple prompt from frontend
       } else {
-        // Others: extract text server-side, inject into prompt
-        console.log(`[/api/ai] ${provider} does not support PDF — extracting text server-side`);
-        const pdfText = await extractPdfText(pdfBase64);
-        finalPrompt = buildExtractionPrompt(pdfText);
+        // All others: extract text, build rich prompt
+        const pdfText   = await extractPdfText(pdfBase64);
+        finalPrompt     = buildExtractionPrompt(pdfText);
       }
     }
 
-    const url     = cfg.getUrl(apiKey);
-    const headers = cfg.getHeaders(apiKey);
-    const body    = cfg.buildBody({
-      prompt:      finalPrompt,
-      pdfBase64:   usePdfBase64,
-      pdfMediaType: pdfMediaType,
-      max_tokens:  cfg.maxTokens
-    });
+    const url  = cfg.getUrl(apiKey);
+    const hdrs = cfg.getHeaders(apiKey);
+    const body = cfg.buildBody({ prompt: finalPrompt, pdfBase64: usePdfB64, pdfMediaType, max_tokens: cfg.maxTokens });
 
-    const fetchRes = await fetch(url, { method:'POST', headers, body });
-    const data     = await fetchRes.json();
-    const text     = cfg.parseResp(data);
-
-    console.log(`[/api/ai] ${provider} OK len=${text.length}`);
+    const r    = await fetch(url, { method:'POST', headers:hdrs, body });
+    const data = await r.json();
+    const text = cfg.parseResp(data);
+    console.log(`[/api/ai] ${provider} ok, ${text.length} chars`);
     res.json({ text });
 
-  } catch (err) {
-    console.error(`[/api/ai] ${provider} ERROR:`, err.message);
+  } catch(err) {
+    console.error(`[/api/ai] ${provider}:`, err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── POST /api/ocr-ai ─────────────────────────────────────────────────────────
-// OCR AI Fill: receives already-extracted OCR text, sends to AI
+// ── POST /api/ocr-ai  (OCR text → AI fill) ──────────────────────────────────
 app.post('/api/ocr-ai', async (req, res) => {
-  const { provider = 'groq', ocrText, max_tokens = 2000 } = req.body;
-  console.log(`[/api/ocr-ai] provider=${provider} textLen=${ocrText?.length}`);
+  const { provider = 'groq', ocrText } = req.body;
+  console.log(`[/api/ocr-ai] provider=${provider} len=${ocrText?.length}`);
 
   const cfg = PROVIDERS[provider];
   if (!cfg) return res.status(400).json({ error: `Unknown provider: ${provider}` });
-
   const apiKey = process.env[cfg.keyEnv];
-  if (!apiKey || !apiKey.trim())
-    return res.status(503).json({ error: `${provider} key not configured.` });
+  if (!apiKey?.trim()) return res.status(503).json({ error: `${provider} key not set.` });
 
   try {
-    const prompt   = buildExtractionPrompt(ocrText.slice(0, 14000));
-    const url      = cfg.getUrl(apiKey);
-    const headers  = cfg.getHeaders(apiKey);
-    const body     = cfg.buildBody({ prompt, max_tokens: cfg.maxTokens });
-    const fetchRes = await fetch(url, { method:'POST', headers, body });
-    const data     = await fetchRes.json();
-    const text     = cfg.parseResp(data);
-    console.log(`[/api/ocr-ai] ${provider} OK len=${text.length}`);
+    const prompt = buildExtractionPrompt((ocrText||'').slice(0, 16000));
+    const url    = cfg.getUrl(apiKey);
+    const hdrs   = cfg.getHeaders(apiKey);
+    const body   = cfg.buildBody({ prompt, max_tokens: cfg.maxTokens });
+    const r      = await fetch(url, { method:'POST', headers:hdrs, body });
+    const data   = await r.json();
+    const text   = cfg.parseResp(data);
+    console.log(`[/api/ocr-ai] ${provider} ok, ${text.length} chars`);
     res.json({ text });
-  } catch (err) {
-    console.error(`[/api/ocr-ai] ${provider} ERROR:`, err.message);
+  } catch(err) {
+    console.error(`[/api/ocr-ai] ${provider}:`, err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/parse-json  (frontend sends raw AI text, server parses safely) ─
+app.post('/api/parse-json', (req, res) => {
+  try {
+    const obj = extractJSON(req.body.raw || '');
+    res.json({ ok: true, data: obj });
+  } catch(err) {
+    res.status(422).json({ ok: false, error: err.message });
   }
 });
 
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
 app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
