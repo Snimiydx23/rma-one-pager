@@ -1457,25 +1457,16 @@ function ocrAIFill(){
     .split('\n').map(l=>l.trim()).filter(l=>l.length>1).join('\n')
     .slice(0, 12000);
 
-  const prompt = `You are a financial data extraction expert. Extract structured fields from this RAW OCR TEXT of a bank loan DPR (Detailed Project Report). Text may have OCR errors or merged words.
-
-RULES:
-1. Return ONLY a valid JSON object — no markdown, no explanation
-2. Leave field as empty string "" if NOT clearly identifiable
-3. cName = ONLY legal company name (e.g. "Hindustan Dhaatu Limited") — NEVER include "Project Report","Set up of","FOR","DPR on"
-4. All amounts in Indian Rupees CRORES. If Lakhs, divide by 100
-5. incDate = YYYY-MM-DD or empty
-6. const = exactly one of: "Private Limited Company","Public Limited Company","LLP","Partnership Firm","Proprietorship"
-7. Numbers = plain digits like "9.50" only
-
-JSON:
-{"cName":"","const":"","incDate":"","activity":"","capacity":"","regAddr":"","factAddr":"","directors":"","keyPerson":"","err":"","tlAmt":"","arrType":"","cLand":"","cShed":"","cPM":"","cDep":"","cConting":"","cPreOp":"","cWCM":"","mPC":"","mUL":"","mBTL":"","mWCFB":"","mWCNFB":"","coBrief":"","mgBrief":"","collateral":"","associates":""}
-
-OCR TEXT:
-${cleanText}`;
-
-  callAI({ prompt, max_tokens:1500 })
-  .then(raw => {
+  // Send raw OCR text to server — server builds prompt and calls AI
+  fetch('/api/ocr-ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: currentProvider, ocrText: cleanText, max_tokens: 2000 })
+  })
+  .then(r => r.json())
+  .then(resp => {
+    if(resp.error) throw new Error(resp.error);
+    const raw = resp.text || '';
     const jsonStr = (raw.match(/\{[\s\S]+\}/) || [raw])[0].replace(/```json|```/g,'').trim();
     let extracted = {};
     try{ extracted = JSON.parse(jsonStr); }
