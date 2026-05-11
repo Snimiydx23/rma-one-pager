@@ -865,9 +865,24 @@ All amounts in Crores. Empty string if not found.`;
 
     const raw = await callAI({ prompt, pdfBase64: b64, pdfMediaType: 'application/pdf' });
     clearInterval(iv);
-    const clean = raw.replace(/```json|```/g,'').trim();
-    const jsonStr = (clean.match(/\{[\s\S]+\}/) || [clean])[0];
-    let ext = {}; try{ ext=JSON.parse(jsonStr); }catch(e){}
+
+    // Use server-side JSON parser for robustness
+    let ext = {};
+    try {
+      const pr = await fetch('/api/parse-json', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ raw })
+      });
+      const pd = await pr.json();
+      if(pd.ok) ext = pd.data;
+      else throw new Error(pd.error);
+    } catch(e) {
+      // Fallback: client-side parse
+      const clean = raw.replace(/```json|```/g,'').trim();
+      const jm = clean.match(/\{[\s\S]+\}/);
+      if(jm) try{ ext = JSON.parse(jm[0]); }catch(e2){}
+    }
+
     const cnt = Object.values(ext).filter(v=>v&&v.toString().trim()).length;
     loadData({...gatherData(),...ext});
     liveUpdate();
@@ -1467,10 +1482,21 @@ function ocrAIFill(){
   .then(resp => {
     if(resp.error) throw new Error(resp.error);
     const raw = resp.text || '';
-    const jsonStr = (raw.match(/\{[\s\S]+\}/) || [raw])[0].replace(/```json|```/g,'').trim();
-    let extracted = {};
-    try{ extracted = JSON.parse(jsonStr); }
-    catch(e){ throw new Error('JSON parse failed: '+e.message); }
+
+    // Use server-side JSON parser
+    return fetch('/api/parse-json', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ raw })
+    }).then(r=>r.json()).then(pd => {
+      if(pd.ok) return pd.data;
+      // fallback client parse
+      const jm = raw.match(/\{[\s\S]+\}/);
+      if(jm) return JSON.parse(jm[0]);
+      throw new Error(pd.error);
+    });
+  })
+  .then(extracted => {
+    if(!extracted) throw new Error('No data extracted');
 
     const existing = gatherData();
     const merged = {...existing};
