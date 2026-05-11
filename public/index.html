@@ -225,7 +225,7 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
             <button class="btn btn-primary" onclick="startExtract()" id="extractBtn" style="justify-content:center;padding:9px">
               <i class="ti ti-sparkles"></i> AI Auto-Extract
-              <span style="font-size:9px;opacity:.85;display:block;margin-top:1px">Uses Anthropic API</span>
+              <span id="extractProviderLabel" style="font-size:9px;opacity:.85;display:block;margin-top:1px">Provider loading…</span>
             </button>
             <button class="btn" onclick="startOCRScan()" id="ocrBtn" style="justify-content:center;padding:9px;border-color:var(--amber);color:var(--amber);background:var(--amber-light)">
               <i class="ti ti-scan"></i> OCR Scan &amp; View
@@ -587,12 +587,22 @@ function onProviderChange(){
 
 function updateProviderBadge(){
   const badge = document.getElementById('providerBadge');
-  if(!badge) return;
+  const label = document.getElementById('extractProviderLabel');
   const m = PROVIDER_META[currentProvider];
-  if(!m){ badge.textContent=''; return; }
-  badge.textContent = m.badge || '';
-  badge.style.background = m.color + '22';
-  badge.style.color = m.color;
+  if(badge){
+    badge.textContent = m ? m.badge : '';
+    badge.style.background = m ? m.color+'22' : '';
+    badge.style.color = m ? m.color : '';
+  }
+  if(label){
+    if(!availableProviders.length){
+      label.textContent = 'No provider configured';
+      label.style.color = 'rgba(255,100,100,0.9)';
+    } else {
+      label.textContent = 'Uses ' + (m ? m.name : currentProvider);
+      label.style.color = '';
+    }
+  }
 }
 
 // Unified AI call — goes through server proxy
@@ -671,7 +681,37 @@ function renderClients(){
         <div class="cname">${c.name}</div>
         <div class="cpct">${c.type} &bull; ${c.filled||0}% filled</div>
       </div>
+      <div onclick="event.stopPropagation();deleteClient(${c.id})"
+        style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;color:var(--text-muted);flex-shrink:0;font-size:13px;cursor:pointer;opacity:0.6"
+        onmouseover="this.style.background='var(--red-light)';this.style.color='var(--red)';this.style.opacity='1'"
+        onmouseout="this.style.background='';this.style.color='var(--text-muted)';this.style.opacity='0.6'"
+        title="Delete client">&#x2715;</div>
     </div>`).join('');
+}
+
+function deleteClient(id){
+  const c = clients.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm(`"${c.name}" ko delete karo?\n\nYeh action undo nahi hoga.`)) return;
+  clients = clients.filter(x => x.id !== id);
+  // If deleted client was active, switch to first remaining
+  if(activeId === id){
+    activeId = clients.length ? clients[0].id : null;
+    if(activeId){
+      selClient(activeId);
+    } else {
+      // No clients left — clear form
+      document.getElementById('tbTitle').textContent = 'Select or create a client';
+      loadData({});
+      liveUpdate();
+    }
+  }
+  renderClients();
+  // Persist
+  try{
+    const save = clients.map(c=>({...c,files:(c.files||[]).map(f=>({name:f.name,size:f.size}))}));
+    localStorage.setItem('rmaop2', JSON.stringify(save));
+  }catch(e){}
 }
 
 function renderSections(){
